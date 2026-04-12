@@ -19,11 +19,13 @@
     "exactOptionalPropertyTypes": true
   },
   "include": [
-    "packages/*/src/**/*"
+    "proxy/src/**/*",
+    "ui/src/**/*"
   ],
   "exclude": [
     "node_modules",
     "dist",
-    "packages/*/dist"
+    "proxy/dist",
+    "ui/dist"
   ]
 }

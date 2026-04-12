@@ -186,7 +186,9 @@ export class ProxyServer {
   }
 
   private handleRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
-    if (req.url === '/events') {
+    if (req.url === '/ping') {
+      this.handlePing(req, res);
+    } else if (req.url === '/events') {
       this.handleSSE(req, res);
     } else if (req.url === '/api/requests') {
       this.handleGetRequests(req, res);
@@ -224,6 +226,18 @@ export class ProxyServer {
       'Access-Control-Allow-Origin': '*'
     });
     res.end(JSON.stringify(this.store.getRequests()));
+  }
+
+  private handlePing(req: http.IncomingMessage, res: http.ServerResponse): void {
+    res.writeHead(200, {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*'
+    });
+    res.end(JSON.stringify({ 
+      status: 'running',
+      message: 'LMMSpy proxy server is running',
+      timestamp: new Date().toISOString()
+    }));
   }
 
   private handleClearRequests(req: http.IncomingMessage, res: http.ServerResponse): void {

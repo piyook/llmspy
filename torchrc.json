@@ -1,0 +1,5 @@
+{
+  "customPaths": ["ui/node_modules"],
+  "protectedPaths": [],
+  "dockerMode": true
+}
