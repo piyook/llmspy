@@ -18,12 +18,11 @@
     "node-forge": "^1.3.1"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2",
+    "concurrently": "^9.2.1",
     "torch-it": "^2.2.0",
-    "typescript": "^5.3.3",
-    "@types/node": "^20.10.5",
-    "tsx": "^4.7.0"
-
+    "typescript": "^6.0.2",
+    "@types/node": "^25.6.0",
+    "tsx": "^4.19.2"
   },
   "engines": {
     "node": ">=18.0.0"

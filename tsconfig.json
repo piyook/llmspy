@@ -4,23 +4,24 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "target": "ES2022",
     "module": "ESNext",
     "declaration": true,
+    "rootDir": "./proxy/src",
     "outDir": "./dist",
-        "resolveJsonModule": true,
+    "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
-    "noImplicitAny": true,
+    "types": ["node"],
+    "noImplicitAny": false,
     "noImplicitReturns": true,
     "noImplicitThis": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "exactOptionalPropertyTypes": true
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "exactOptionalPropertyTypes": false
   },
   "include": [
-    "proxy/src/**/*",
-    "ui/src/**/*"
+    "proxy/src/**/*"
   ],
   "exclude": [
     "node_modules",

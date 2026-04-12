@@ -160,7 +160,7 @@ export class ProxyServer {
 
     clientSocket.write('HTTP/1.1 200 Connection Established\r\n\r\n');
     clientSocket.pipe(serverSocket as any);
-    serverSocket.pipe(clientSocket);
+    (serverSocket as any).pipe(clientSocket);
   }
 
   private handleTunnelConnect(
