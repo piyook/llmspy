@@ -1,0 +1,21 @@
+{
+  "name": "lmmspy",
+  "version": "1.0.0",
+  "description": "Local developer tool for intercepting and displaying LLM API traffic",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace=packages/proxy\" \"npm run dev --workspace=packages/ui\"",
+    "build": "npm run build --workspace=packages/proxy && npm run build --workspace=packages/ui",
+    "start": "npm run start --workspace=packages/proxy"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
