@@ -1,23 +1,46 @@
-export interface InterceptedRequest {
+export type Headers = Record<string, string | string[]>;
+
+export interface Timings {
+	/** Epoch ms when the request reached LLMSpy. */
+	start: number;
+	/** Epoch ms when the upstream response headers arrived. */
+	firstByte?: number;
+	/** Epoch ms when the response was fully sent, or the exchange failed. */
+	end?: number;
+}
+
+export interface CapturedRequest {
 	id: string;
-	timestamp: Date;
+	/** ISO time the request reached LLMSpy. */
+	timestamp: string;
+	/** Name of the upstream, from the path prefix (e.g. `anthropic`). */
+	provider: string;
+	/** Upstream host the request was forwarded to. */
 	host: string;
 	method: string;
+	/** Path and query as sent upstream. */
 	path: string;
-	headers: Record<string, string>;
+	/** Request headers, with API keys masked. */
+	headers: Headers;
+	/** Request body, decompressed and decoded as UTF-8. */
 	body: string;
 	response?: {
 		status: number;
-		headers: Record<string, string>;
+		headers: Headers;
+		/** Response body, decompressed and decoded as UTF-8. */
 		body: string;
 	};
+	timings: Timings;
+	/** `timings.end - timings.start`, in ms. */
 	latency?: number;
 	error?: string;
 }
 
 export interface ProxyConfig {
 	port: number;
-	uiPort: number;
-	llmHosts: string[];
+	/** Interface to listen on. Captured requests hold API keys, so keep this local. */
+	host: string;
+	/** Path prefix name -> upstream base URL. */
+	upstreams: Map<string, URL>;
 	maxRequests: number;
 }

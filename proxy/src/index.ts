@@ -1,45 +1,53 @@
-import { ProxyServer } from './proxy';
-import { RequestStore } from './store';
-import type { ProxyConfig } from './types';
+import { ProxyServer } from './proxy.js';
+import { RequestStore } from './store.js';
+import type { ProxyConfig } from './types.js';
+import { parseUpstreams } from './upstreams.js';
 
-const config: ProxyConfig = {
-	port: parseInt(process.env.PROXY_PORT || '8080', 10),
-	uiPort: parseInt(process.env.UI_PORT || '3000', 10),
-	llmHosts: [
-		'api.anthropic.com',
-		'api.openai.com',
-		'generativelanguage.googleapis.com',
-		...(process.env.LLM_HOSTS?.split(',') || []),
-	],
-	maxRequests: 500,
-};
+const host = '127.0.0.1';
+const uiPort = Number.parseInt(process.env.UI_PORT ?? '3000', 10);
+
+let config: ProxyConfig;
+try {
+	config = {
+		port: Number.parseInt(process.env.PROXY_PORT ?? '8080', 10),
+		host,
+		upstreams: parseUpstreams(process.env.LLMSPY_UPSTREAMS),
+		maxRequests: 500,
+	};
+} catch (error) {
+	console.error((error as Error).message);
+	process.exit(1);
+}
 
 const store = new RequestStore(config.maxRequests);
 const proxy = new ProxyServer(config, store);
 
-async function start() {
+async function start(): Promise<void> {
 	try {
-		await proxy.start();
-		console.log(`🚀 LLMSpy proxy server started on port ${config.port}`);
-		console.log(`📊 UI available at http://localhost:${config.uiPort}`);
-		console.log(
-			`🔐 CA certificate: ${new (await import('./ca')).CertificateAuthority().getCertPath()}`,
+		const port = await proxy.start();
+		const base = `http://${host}:${port}`;
+		const width = Math.max(
+			...[...config.upstreams.keys()].map((n) => n.length),
 		);
-		console.log(`\n📋 Setup instructions:`);
-		console.log(`1. Install dependencies: npm install`);
-		console.log(`2. Trust the CA certificate (see README)`);
-		console.log(`3. Set environment variables:`);
-		console.log(`   export HTTP_PROXY=http://localhost:${config.port}`);
-		console.log(`   export HTTPS_PROXY=http://localhost:${config.port}`);
-		console.log(`4. Start the UI: cd packages/ui && npm run dev`);
+
+		console.log(`LLMSpy listening on ${base}`);
+		console.log(`UI: http://localhost:${uiPort}\n`);
+		console.log('Point an app at one of these base URLs:');
+		for (const [name, url] of config.upstreams) {
+			console.log(
+				`  ${name.padEnd(width)}  ${base}/${name}  ->  ${url.href}`,
+			);
+		}
+		console.log('\nFor example:');
+		console.log(`  ANTHROPIC_BASE_URL=${base}/anthropic`);
+		console.log(`  OPENAI_BASE_URL=${base}/openai/v1`);
 	} catch (error) {
-		console.error('Failed to start proxy server:', error);
+		console.error('Failed to start LLMSpy:', error);
 		process.exit(1);
 	}
 }
 
 process.on('SIGINT', async () => {
-	console.log('\n🛑 Shutting down proxy server...');
 	await proxy.stop();
 	process.exit(0);
 });
