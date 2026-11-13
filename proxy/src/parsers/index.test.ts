@@ -168,3 +168,37 @@ describe('parseExchange', () => {
 		]);
 	});
 });
+
+describe('parseExchange for OpenAI Chat', () => {
+	it('reads a stream of unnamed events ending in [DONE]', () => {
+		const chunk = (delta: object, finish_reason: string | null = null) =>
+			`data: ${JSON.stringify({ model: 'gpt-test', choices: [{ index: 0, delta, finish_reason }] })}\n\n`;
+		const exchange = parseExchange(
+			capture({
+				provider: 'openai',
+				path: '/v1/chat/completions',
+				body: JSON.stringify({
+					model: 'gpt-test',
+					stream: true,
+					messages: [{ role: 'user', content: 'Hi' }],
+				}),
+				response: {
+					status: 200,
+					headers: { 'content-type': 'text/event-stream' },
+					body: `${chunk({ content: 'Hel' })}${chunk({ content: 'lo' })}${chunk({}, 'stop')}data: [DONE]\n\n`,
+				},
+			}),
+		);
+		expect(exchange).toEqual({
+			format: 'openai-chat',
+			model: 'gpt-test',
+			stream: true,
+			messages: [{ role: 'user', parts: [{ type: 'text', text: 'Hi' }] }],
+			output: {
+				role: 'assistant',
+				parts: [{ type: 'text', text: 'Hello' }],
+			},
+			stopReason: 'stop',
+		});
+	});
+});

@@ -5,6 +5,7 @@ import {
 	asString,
 	isRecord,
 	type JsonObject,
+	parseJsonOrKeep,
 } from './json.js';
 import type {
 	FormatParser,
@@ -184,7 +185,7 @@ function parseStream(events: unknown[]): LlmResponse {
 
 	toolInputs.forEach((json, index) => {
 		const block = blocks[index];
-		if (block && json !== '') block.input = parseOrKeep(json);
+		if (block && json !== '') block.input = parseJsonOrKeep(json);
 	});
 
 	return {
@@ -205,15 +206,6 @@ function numbersOnly(value: unknown): JsonObject {
 			([, field]) => asNumber(field) !== undefined,
 		),
 	);
-}
-
-/** Tool input JSON, or the text as received when a cut stream left it incomplete. */
-function parseOrKeep(json: string): unknown {
-	try {
-		return JSON.parse(json);
-	} catch {
-		return json;
-	}
 }
 
 export const anthropicMessages: FormatParser = {

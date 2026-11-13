@@ -1,10 +1,12 @@
 import type { CapturedRequest } from '../types.js';
 import { anthropicMessages } from './anthropic.js';
+import { openaiChat } from './openai-chat.js';
 import { parseSseJson } from './sse.js';
 import type { FormatParser, LlmExchange, LlmFormat } from './types.js';
 
 const PARSERS: Partial<Record<LlmFormat, FormatParser>> = {
 	'anthropic-messages': anthropicMessages,
+	'openai-chat': openaiChat,
 };
 
 /**
