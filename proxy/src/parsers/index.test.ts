@@ -202,3 +202,61 @@ describe('parseExchange for OpenAI Chat', () => {
 		});
 	});
 });
+
+describe('parseExchange for OpenAI Responses', () => {
+	it('reads a stream of named events', () => {
+		const response = {
+			model: 'gpt-test-2026-01-01',
+			status: 'completed',
+			output: [
+				{
+					type: 'message',
+					role: 'assistant',
+					content: [{ type: 'output_text', text: 'Hello' }],
+				},
+			],
+		};
+		const exchange = parseExchange(
+			capture({
+				provider: 'openai',
+				path: '/v1/responses',
+				body: JSON.stringify({
+					model: 'gpt-test',
+					stream: true,
+					input: 'Hi',
+				}),
+				response: {
+					status: 200,
+					headers: { 'content-type': 'text/event-stream' },
+					body: sse([
+						{
+							type: 'response.created',
+							response: {
+								...response,
+								status: 'in_progress',
+								output: [],
+							},
+						},
+						{
+							type: 'response.output_text.delta',
+							output_index: 0,
+							delta: 'Hello',
+						},
+						{ type: 'response.completed', response },
+					]),
+				},
+			}),
+		);
+		expect(exchange).toEqual({
+			format: 'openai-responses',
+			model: 'gpt-test-2026-01-01',
+			stream: true,
+			messages: [{ role: 'user', parts: [{ type: 'text', text: 'Hi' }] }],
+			output: {
+				role: 'assistant',
+				parts: [{ type: 'text', text: 'Hello' }],
+			},
+			stopReason: 'completed',
+		});
+	});
+});
