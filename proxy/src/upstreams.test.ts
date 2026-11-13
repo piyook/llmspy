@@ -1,0 +1,77 @@
+import { describe, expect, it } from 'vitest';
+import { parseUpstreams, resolveRoute } from './upstreams.js';
+
+describe('parseUpstreams', () => {
+	it('has anthropic and openai by default', () => {
+		const upstreams = parseUpstreams(undefined);
+		expect(upstreams.get('anthropic')?.href).toBe(
+			'https://api.anthropic.com/',
+		);
+		expect(upstreams.get('openai')?.href).toBe('https://api.openai.com/');
+	});
+
+	it('adds and overrides upstreams from the spec', () => {
+		const upstreams = parseUpstreams(
+			' ollama=http://localhost:11434 , openai=https://proxy.example/v1',
+		);
+		expect(upstreams.get('ollama')?.href).toBe('http://localhost:11434/');
+		expect(upstreams.get('openai')?.href).toBe('https://proxy.example/v1');
+		expect(upstreams.has('anthropic')).toBe(true);
+	});
+
+	it.each([
+		['no equals sign', 'ollama'],
+		['empty name', '=http://localhost'],
+		['reserved name', 'api=http://localhost'],
+		['bad name', 'My_Host=http://localhost'],
+		['invalid url', 'ollama=localhost:11434'],
+		['non-http url', 'ollama=ftp://localhost'],
+	])('rejects %s', (_label, spec) => {
+		expect(() => parseUpstreams(spec)).toThrow(/LLMSPY_UPSTREAMS/);
+	});
+});
+
+describe('resolveRoute', () => {
+	const upstreams = new Map([
+		['anthropic', new URL('https://api.anthropic.com')],
+		['local', new URL('http://localhost:11434/v1/')],
+	]);
+
+	it('forwards the rest of the path and the query', () => {
+		const route = resolveRoute(
+			'/anthropic/v1/messages?beta=true',
+			upstreams,
+		);
+		expect(route?.provider).toBe('anthropic');
+		expect(route?.target.href).toBe(
+			'https://api.anthropic.com/v1/messages?beta=true',
+		);
+	});
+
+	it('appends to an upstream base path', () => {
+		expect(
+			resolveRoute('/local/chat/completions', upstreams)?.target.href,
+		).toBe('http://localhost:11434/v1/chat/completions');
+	});
+
+	it('handles a bare prefix', () => {
+		expect(resolveRoute('/anthropic', upstreams)?.target.href).toBe(
+			'https://api.anthropic.com/',
+		);
+		expect(resolveRoute('/anthropic?x=1', upstreams)?.target.href).toBe(
+			'https://api.anthropic.com/?x=1',
+		);
+	});
+
+	it('keeps a path that looks like another host on the same upstream', () => {
+		expect(
+			resolveRoute('/anthropic//evil.example/x', upstreams)?.target.host,
+		).toBe('api.anthropic.com');
+	});
+
+	it('matches whole path segments only', () => {
+		expect(resolveRoute('/anthropicx/v1', upstreams)).toBeUndefined();
+		expect(resolveRoute('/unknown/v1', upstreams)).toBeUndefined();
+		expect(resolveRoute('/', upstreams)).toBeUndefined();
+	});
+});
