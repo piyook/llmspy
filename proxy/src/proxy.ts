@@ -100,6 +100,10 @@ export class ProxyServer {
 			'Cache-Control': 'no-cache',
 			Connection: 'keep-alive',
 		});
+		// Node holds the headers back until the first write, and with an empty
+		// store there is nothing to replay, so the browser would never see the
+		// stream open.
+		res.flushHeaders();
 
 		this.sseClients.add(res);
 		req.on('close', () => {
@@ -122,6 +126,9 @@ export class ProxyServer {
 			JSON.stringify({
 				status: 'running',
 				message: 'LLMSpy proxy server is running',
+				// The port really bound, so the UI can show it even when it is
+				// served from elsewhere (Vite in dev).
+				port: (this.server.address() as AddressInfo).port,
 				timestamp: new Date().toISOString(),
 			}),
 		);

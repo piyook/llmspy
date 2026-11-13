@@ -1,12 +1,24 @@
 <script lang="ts">
+import StatusIcon from './StatusIcon.svelte';
+
 let {
 	search = $bindable(''),
+	connected,
+	address,
 	onclear,
-}: { search: string; onclear: () => void } = $props();
+}: {
+	search: string;
+	connected: boolean;
+	address?: string;
+	onclear: () => void;
+} = $props();
 </script>
 
 <div class="header">
-  <h1>LLMSpy</h1>
+  <div class="title">
+    <h1>LLMSpy</h1>
+    <StatusIcon {connected} {address} />
+  </div>
   <div class="controls">
     <input
       type="search"
