@@ -1,9 +1,9 @@
 <script lang="ts">
 import { onMount } from 'svelte';
 import { SvelteMap } from 'svelte/reactivity';
+import Detail from './Detail.svelte';
 import { matchesSearch, newestFirst } from './lib/requests.js';
 import type { CapturedRequest } from './lib/types.js';
-import RawView from './RawView.svelte';
 import RequestRow from './RequestRow.svelte';
 import Toolbar from './Toolbar.svelte';
 
@@ -83,7 +83,7 @@ async function clearRequests() {
 
   <section class="detail" aria-label="Selected request">
     {#if selected}
-      <RawView request={selected} />
+      <Detail request={selected} />
     {:else}
       <div class="no-requests">Select a request to see it here.</div>
     {/if}
