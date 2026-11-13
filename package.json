@@ -13,6 +13,7 @@
 		"dev:ui": "npm run dev -w ui",
 		"build": "npm run build --workspaces",
 		"start": "npm start -w proxy",
+		"mock": "cd mock && concurrently -n anthropic,openai -c magenta,cyan \"llmock start --model=claude --foreground\" \"llmock start --model=chatgpt --port=8002 --foreground\"",
 		"lint": "biome check",
 		"lint:fix": "biome check --write",
 		"format": "biome format --write",
@@ -33,6 +34,7 @@
 		"@commitlint/config-conventional": "^21.2.4",
 		"concurrently": "^9.2.1",
 		"husky": "^9.1.7",
+		"llmock": "^3.13.0",
 		"torch-it": "^2.2.0",
 		"typescript": "^6.0.2"
 	},
