@@ -100,6 +100,10 @@ export class ProxyServer {
 			'Cache-Control': 'no-cache',
 			Connection: 'keep-alive',
 		});
+		// Node holds the headers back until the first write, and with an empty
+		// store there is nothing to replay, so the browser would never see the
+		// stream open.
+		res.flushHeaders();
 
 		this.sseClients.add(res);
 		req.on('close', () => {
