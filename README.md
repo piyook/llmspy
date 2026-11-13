@@ -110,7 +110,7 @@ The script sends one request of each kind below. To use the mocks from your own 
 | `#stream-error` | A stream that sends an error event part-way through          |
 | `#stream-drop`  | A stream whose connection is cut part-way through            |
 
-Anything else gets random lorem ipsum. The Anthropic mock streams when the request asks for it; the OpenAI mock does not stream unless switched with `PATCH /admin/settings` (see llmock's docs), which the script does.
+Anything else gets random lorem ipsum. Both mocks stream when the request sets `"stream": true`.
 
 ## Troubleshooting
 

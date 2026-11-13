@@ -7,9 +7,6 @@
 const proxy = process.env.LLMSPY_URL ?? 'http://127.0.0.1:8080';
 const anthropicUrl = `${proxy}/llmock/v1/messages`;
 const openaiUrl = `${proxy}/llmock-openai/v1/chat/completions`;
-// The OpenAI mock streams or not by its own setting, not the request's
-// `stream`, so the script switches it through llmock's admin API.
-const openaiMock = process.env.LLMOCK_OPENAI_URL ?? 'http://127.0.0.1:8002';
 
 const anthropicHeaders = {
 	'content-type': 'application/json',
@@ -70,15 +67,6 @@ async function send(label, url, headers, body) {
 		);
 		return undefined;
 	}
-}
-
-async function setOpenaiStream(stream) {
-	const res = await fetch(`${openaiMock}/admin/settings`, {
-		method: 'PATCH',
-		headers: { 'content-type': 'application/json' },
-		body: JSON.stringify({ stream }),
-	});
-	if (!res.ok) throw new Error(`llmock admin API: ${res.status}`);
 }
 
 async function anthropic() {
@@ -154,19 +142,18 @@ async function openai() {
 	await ask('openai: refusal', 'Do something bad. #refusal');
 	await ask('openai: 429', 'Hello. #rate-limit');
 
-	await setOpenaiStream(true);
-	try {
-		const stream = (label, content) =>
-			send(label, openaiUrl, openaiHeaders, {
-				...openaiBody(content),
-				stream: true,
-			});
-		await stream('openai: streamed', 'Write a short poem.');
-		await stream('openai: error mid-stream', 'Hello. #stream-error');
-		await stream('openai: dropped mid-stream', 'Hello. #stream-drop');
-	} finally {
-		await setOpenaiStream(false);
-	}
+	const stream = (label, content, extra) =>
+		send(label, openaiUrl, openaiHeaders, {
+			...openaiBody(content),
+			stream: true,
+			...extra,
+		});
+	// Usage comes in a last chunk only when the request asks for it.
+	await stream('openai: streamed, with usage', 'Write a short poem.', {
+		stream_options: { include_usage: true },
+	});
+	await stream('openai: error mid-stream', 'Hello. #stream-error');
+	await stream('openai: dropped mid-stream', 'Hello. #stream-drop');
 }
 
 await anthropic();
