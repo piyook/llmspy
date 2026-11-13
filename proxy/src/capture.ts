@@ -1,0 +1,213 @@
+import { randomUUID } from 'node:crypto';
+import * as http from 'node:http';
+import * as https from 'node:https';
+import * as zlib from 'node:zlib';
+import type { CapturedRequest, Headers } from './types.js';
+
+/** Headers that apply to one connection and must not be forwarded (RFC 9110 7.6.1). */
+const HOP_BY_HOP = new Set([
+	'connection',
+	'keep-alive',
+	'proxy-authenticate',
+	'proxy-authorization',
+	'proxy-connection',
+	'te',
+	'trailer',
+	'transfer-encoding',
+	'upgrade',
+]);
+
+const SECRET_HEADERS = new Set(['authorization', 'x-api-key']);
+
+export function stripHopByHop(headers: http.IncomingHttpHeaders): Headers {
+	const listed = String(headers.connection ?? '')
+		.split(',')
+		.map((token) => token.trim().toLowerCase())
+		.filter(Boolean);
+
+	const result: Headers = {};
+	for (const [name, value] of Object.entries(headers)) {
+		if (value === undefined) continue;
+		if (HOP_BY_HOP.has(name) || listed.includes(name)) continue;
+		result[name] = value;
+	}
+	return result;
+}
+
+/**
+ * Masks a secret, keeping an auth scheme such as `Bearer ` and the last
+ * four characters when the secret is long enough for that to be safe.
+ */
+export function maskSecret(value: string): string {
+	const space = value.indexOf(' ');
+	const scheme = space > 0 ? value.slice(0, space + 1) : '';
+	const secret = value.slice(scheme.length);
+	const tail = secret.length > 8 ? secret.slice(-4) : '';
+	return `${scheme}••••${tail}`;
+}
+
+export function maskHeaders(headers: Headers): Headers {
+	const result: Headers = {};
+	for (const [name, value] of Object.entries(headers)) {
+		if (!SECRET_HEADERS.has(name)) {
+			result[name] = value;
+		} else {
+			result[name] = Array.isArray(value)
+				? value.map(maskSecret)
+				: maskSecret(value);
+		}
+	}
+	return result;
+}
+
+function decompress(data: Buffer, encoding: string): Buffer {
+	// Flush rather than fail at the end, so a stream cut short still shows
+	// what arrived.
+	switch (encoding) {
+		case 'gzip':
+		case 'x-gzip':
+			return zlib.gunzipSync(data, {
+				finishFlush: zlib.constants.Z_SYNC_FLUSH,
+			});
+		case 'deflate':
+			return zlib.inflateSync(data, {
+				finishFlush: zlib.constants.Z_SYNC_FLUSH,
+			});
+		case 'br':
+			return zlib.brotliDecompressSync(data, {
+				finishFlush: zlib.constants.BROTLI_OPERATION_FLUSH,
+			});
+		case 'zstd':
+			return zlib.zstdDecompressSync(data);
+		default:
+			throw new Error(`unsupported content-encoding "${encoding}"`);
+	}
+}
+
+/** Decompresses a body per its `content-encoding` and decodes it as UTF-8. */
+export function decodeBody(
+	raw: Buffer,
+	contentEncoding: string | string[] | undefined,
+): string {
+	if (raw.length === 0) return '';
+
+	const encodings = String(contentEncoding ?? '')
+		.split(',')
+		.map((encoding) => encoding.trim().toLowerCase())
+		.filter((encoding) => encoding && encoding !== 'identity');
+
+	try {
+		let data = raw;
+		// Encodings are listed in the order they were applied; undo them in reverse.
+		for (const encoding of encodings.reverse()) {
+			data = decompress(data, encoding);
+		}
+		return data.toString('utf8');
+	} catch (error) {
+		return `[LLMSpy could not decode this body: ${(error as Error).message}]`;
+	}
+}
+
+/**
+ * Forwards one request to `target` and streams the response back unchanged,
+ * chunk by chunk, keeping a copy of both bodies. Calls `onDone` once with the
+ * captured exchange when the response has been sent or the exchange failed.
+ *
+ * It does not care how the request arrived, so any front end (base-URL
+ * routes now, an intercepting proxy later) can hand requests to it.
+ */
+export function forwardAndCapture(
+	req: http.IncomingMessage,
+	res: http.ServerResponse,
+	provider: string,
+	target: URL,
+	onDone: (captured: CapturedRequest) => void,
+): void {
+	const start = Date.now();
+	const captured: CapturedRequest = {
+		id: randomUUID(),
+		timestamp: new Date(start).toISOString(),
+		provider,
+		host: target.host,
+		method: req.method ?? 'GET',
+		path: target.pathname + target.search,
+		headers: maskHeaders(stripHopByHop(req.headers)),
+		body: '',
+		timings: { start },
+	};
+
+	const requestChunks: Buffer[] = [];
+	const responseChunks: Buffer[] = [];
+	let upstreamRes: http.IncomingMessage | undefined;
+	let finished = false;
+
+	const finish = (error?: string): void => {
+		if (finished) return;
+		finished = true;
+
+		const end = Date.now();
+		captured.timings.end = end;
+		captured.latency = end - start;
+		captured.body = decodeBody(
+			Buffer.concat(requestChunks),
+			req.headers['content-encoding'],
+		);
+		if (upstreamRes) {
+			captured.response = {
+				status: upstreamRes.statusCode ?? 0,
+				headers: stripHopByHop(upstreamRes.headers),
+				body: decodeBody(
+					Buffer.concat(responseChunks),
+					upstreamRes.headers['content-encoding'],
+				),
+			};
+		}
+		if (error) captured.error = error;
+		onDone(captured);
+	};
+
+	const headers = stripHopByHop(req.headers);
+	headers.host = target.host;
+	const transport = target.protocol === 'https:' ? https : http;
+	const upstreamReq = transport.request(target, {
+		method: req.method,
+		headers,
+	});
+
+	req.on('data', (chunk: Buffer) => requestChunks.push(chunk));
+	req.pipe(upstreamReq);
+
+	upstreamReq.on('response', (response) => {
+		upstreamRes = response;
+		captured.timings.firstByte = Date.now();
+		res.writeHead(
+			response.statusCode ?? 502,
+			stripHopByHop(response.headers),
+		);
+		response.on('data', (chunk: Buffer) => responseChunks.push(chunk));
+		response.on('error', (error) => {
+			finish(`Upstream response failed: ${error.message}`);
+			res.destroy();
+		});
+		response.pipe(res);
+	});
+
+	upstreamReq.on('error', (error) => {
+		finish(`Upstream request failed: ${error.message}`);
+		if (res.headersSent) {
+			res.destroy();
+		} else {
+			res.writeHead(502, { 'content-type': 'text/plain; charset=utf-8' });
+			res.end(
+				`LLMSpy could not reach ${target.origin}: ${error.message}`,
+			);
+		}
+	});
+
+	res.on('finish', () => finish());
+	res.on('close', () => {
+		if (res.writableFinished) return;
+		finish('Client closed the connection before the response finished');
+		upstreamReq.destroy();
+	});
+}
