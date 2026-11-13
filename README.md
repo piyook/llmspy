@@ -1,4 +1,4 @@
-# LMMSpy
+# LLMSpy
 
 A local developer tool for intercepting and displaying LLM API traffic in real-time.
 
@@ -34,7 +34,7 @@ The proxy generates a self-signed CA certificate to intercept HTTPS traffic. You
 
 ```bash
 # Add to Keychain
-sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ~/.lmmspy/ca.crt
+sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ~/.llmspy/ca.crt
 
 # Or double-click the certificate and set "Always Trust" in Keychain Access
 ```
@@ -45,14 +45,14 @@ sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keyc
 # Import to Trusted Root Certification Authorities
 certmgr.msc
 # Right-click "Trusted Root Certification Authorities" -> "All Tasks" -> "Import"
-# Browse to %USERPROFILE%\.lmmspy\ca.crt
+# Browse to %USERPROFILE%\.llmspy\ca.crt
 ```
 
 #### Linux (Ubuntu/Debian)
 
 ```bash
 # Copy to system certificates
-sudo cp ~/.lmmspy/ca.crt /usr/local/share/ca-certificates/lmmspy.crt
+sudo cp ~/.llmspy/ca.crt /usr/local/share/ca-certificates/llmspy.crt
 sudo update-ca-certificates
 ```
 
@@ -117,7 +117,7 @@ The proxy automatically intercepts requests to:
 ### Project Structure
 
 ```
-lmmspy/
+llmspy/
 packages/
   proxy/          # Node.js proxy server
     src/

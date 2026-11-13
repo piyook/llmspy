@@ -95,8 +95,8 @@ temp/
 ehthumbs.db
 Thumbs.db
 
-# LMMSpy specific
-~/.lmmspy/
+# LLMSpy specific
+~/.llmspy/
 *.pem
 *.crt
 *.key
