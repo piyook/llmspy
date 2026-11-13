@@ -1,0 +1,16 @@
+# Git sends "<local ref> <local sha> <remote ref> <remote sha>" per pushed ref on
+# stdin. Validate the remote branch names being pushed, skipping deletions (all-zero
+# local sha) and tags, so detached HEADs and `git push origin other-branch` work.
+branches=""
+while read -r local_ref local_sha remote_ref remote_sha; do
+	case "$local_sha" in *[!0]*) ;; *) continue ;; esac
+	case "$remote_ref" in refs/heads/*) branches="$branches ${remote_ref#refs/heads/}" ;; esac
+done
+if [ -n "$branches" ]; then
+	npm run validate-branch-name -- $branches
+fi
+
+npx biome ci
+npm run typecheck
+npm run build
+npm audit --omit=dev

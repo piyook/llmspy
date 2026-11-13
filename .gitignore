@@ -101,5 +101,8 @@ Thumbs.db
 *.crt
 *.key
 
+# Claude Code's notes for this repo: kept local, never pushed
+CLAUDE.md
+
 # torch-it
 torch-it.log    
