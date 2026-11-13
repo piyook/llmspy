@@ -16,8 +16,8 @@ const label = $derived(
 >
   <svg
     viewBox="0 0 30 24"
-    width="35"
-    height="28"
+    width="45"
+    height="36"
     fill="none"
     stroke="currentColor"
     stroke-width="2"
