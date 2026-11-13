@@ -1,6 +1,7 @@
 import * as http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { forwardAndCapture } from './capture.js';
+import { parseExchange } from './parsers/index.js';
 import { serveStatic } from './static.js';
 import type { RequestStore } from './store.js';
 import type { CapturedRequest, ProxyConfig } from './types.js';
@@ -59,6 +60,8 @@ export class ProxyServer {
 			route.provider,
 			route.target,
 			(captured) => {
+				const llm = parseExchange(captured);
+				if (llm) captured.llm = llm;
 				this.store.addRequest(captured);
 				this.broadcast(captured);
 			},

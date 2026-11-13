@@ -1,3 +1,5 @@
+import type { LlmExchange } from './parsers/types.js';
+
 export type Headers = Record<string, string | string[]>;
 
 export interface Timings {
@@ -34,6 +36,8 @@ export interface CapturedRequest {
 	/** `timings.end - timings.start`, in ms. */
 	latency?: number;
 	error?: string;
+	/** The exchange read as an LLM API call, when the path is one LLMSpy knows. */
+	llm?: LlmExchange;
 }
 
 export interface ProxyConfig {

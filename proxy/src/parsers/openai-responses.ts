@@ -1,0 +1,285 @@
+import {
+	asArray,
+	asNumber,
+	asRecord,
+	asString,
+	isRecord,
+	type JsonObject,
+	parseJsonOrKeep,
+} from './json.js';
+import type {
+	FormatParser,
+	LlmMessage,
+	LlmPart,
+	LlmRequest,
+	LlmResponse,
+	LlmTool,
+	LlmUsage,
+} from './types.js';
+
+// OpenAI Responses API: POST /v1/responses. Input and output are lists of
+// items (messages, reasoning, tool calls, tool outputs), not messages. With
+// `previous_response_id` the earlier conversation is kept by OpenAI and only
+// the new input is in the request.
+
+/** Message content is a string or an array of parts. */
+function contentParts(content: unknown): LlmPart[] {
+	if (typeof content === 'string') return [{ type: 'text', text: content }];
+	return asArray(content).map((part): LlmPart => {
+		const p = asRecord(part);
+		switch (p.type) {
+			case 'input_text':
+			case 'output_text':
+				return { type: 'text', text: asString(p.text) ?? '' };
+			case 'refusal':
+				return { type: 'text', text: asString(p.refusal) ?? '' };
+			case 'input_image':
+				return { type: 'image' };
+			default:
+				return { type: 'other', raw: part };
+		}
+	});
+}
+
+/** Content as text; non-text parts become `[type]`. */
+function contentText(content: unknown): string {
+	return contentParts(content)
+		.map((part) => (part.type === 'text' ? part.text : `[${part.type}]`))
+		.join('\n');
+}
+
+/** A tool output is a string, an array of content parts, or an object. */
+function outputText(output: unknown): string {
+	if (output === undefined || typeof output === 'string') return output ?? '';
+	if (Array.isArray(output)) return contentText(output);
+	return JSON.stringify(output);
+}
+
+/** The parts of an item the model produced: a message, reasoning or a tool call. */
+function outputParts(raw: unknown): LlmPart[] {
+	const item = asRecord(raw);
+	switch (item.type) {
+		case 'message':
+			return contentParts(item.content);
+		case 'reasoning': {
+			// Reasoning is often encrypted only; then the part is empty but shows it happened.
+			const text = [...asArray(item.summary), ...asArray(item.content)]
+				.map((part) => asString(asRecord(part).text))
+				.filter((text) => text !== undefined)
+				.join('\n\n');
+			return [{ type: 'thinking', text }];
+		}
+		case 'function_call': {
+			const args = item.arguments;
+			return [
+				{
+					type: 'tool_call',
+					id: asString(item.call_id) ?? '',
+					name: asString(item.name) ?? '',
+					input:
+						typeof args === 'string' ? parseJsonOrKeep(args) : args,
+				},
+			];
+		}
+		case 'custom_tool_call':
+			return [
+				{
+					type: 'tool_call',
+					id: asString(item.call_id) ?? '',
+					name: asString(item.name) ?? '',
+					input: item.input,
+				},
+			];
+		default:
+			// Built-in tool calls (web search, file search, MCP and others).
+			return [{ type: 'other', raw }];
+	}
+}
+
+/** Appends to the last message when it is the assistant's, so one turn is one message. */
+function pushAssistant(messages: LlmMessage[], parts: LlmPart[]): void {
+	const last = messages.at(-1);
+	if (last?.role === 'assistant') last.parts.push(...parts);
+	else messages.push({ role: 'assistant', parts });
+}
+
+function toUsage(usage: unknown): LlmUsage | undefined {
+	if (!isRecord(usage)) return undefined;
+	return {
+		input: asNumber(usage.input_tokens),
+		output: asNumber(usage.output_tokens),
+		cacheRead: asNumber(asRecord(usage.input_tokens_details).cached_tokens),
+		reasoning: asNumber(
+			asRecord(usage.output_tokens_details).reasoning_tokens,
+		),
+	};
+}
+
+/** Function and custom tools have a name; built-in tools are named by their MCP server or type. */
+function toTool(tool: unknown): LlmTool {
+	const t = asRecord(tool);
+	return {
+		name:
+			asString(t.name) ??
+			asString(t.server_label) ??
+			asString(t.type) ??
+			'',
+		description: asString(t.description),
+	};
+}
+
+function parseRequest(body: unknown): LlmRequest {
+	const b = asRecord(body);
+	const system: string[] = [];
+	const messages: LlmMessage[] = [];
+
+	const instructions = asString(b.instructions);
+	if (instructions) system.push(instructions);
+
+	const input =
+		typeof b.input === 'string' ? [{ content: b.input }] : b.input;
+	for (const raw of asArray(input)) {
+		const item = asRecord(raw);
+		// Messages may leave out `type`.
+		const type = asString(item.type) ?? 'message';
+		if (type === 'message') {
+			switch (item.role) {
+				case 'system':
+				case 'developer':
+					system.push(contentText(item.content));
+					break;
+				case 'assistant':
+					pushAssistant(messages, contentParts(item.content));
+					break;
+				default:
+					messages.push({
+						role: 'user',
+						parts: contentParts(item.content),
+					});
+			}
+		} else if (type.endsWith('_output')) {
+			messages.push({
+				role: 'tool',
+				parts: [
+					{
+						type: 'tool_result',
+						id: asString(item.call_id) ?? '',
+						content: outputText(item.output),
+					},
+				],
+			});
+		} else {
+			pushAssistant(messages, outputParts(item));
+		}
+	}
+
+	const tools = asArray(b.tools).map(toTool);
+	return {
+		model: asString(b.model),
+		stream: b.stream === true,
+		system: system.length > 0 ? system.join('\n\n') : undefined,
+		messages,
+		tools: tools.length > 0 ? tools : undefined,
+	};
+}
+
+/**
+ * There is no finish reason: `status` is `completed`, `incomplete` or
+ * `failed`, and an incomplete response says why (`max_output_tokens`).
+ */
+function parseResponse(body: unknown): LlmResponse {
+	const b = asRecord(body);
+	return {
+		model: asString(b.model),
+		output: {
+			role: 'assistant',
+			parts: asArray(b.output).flatMap(outputParts),
+		},
+		stopReason:
+			asString(asRecord(b.incomplete_details).reason) ??
+			asString(b.status),
+		usage: toUsage(b.usage),
+	};
+}
+
+/** Delta events, and the field of their item they add to. */
+const DELTAS: Record<string, (item: JsonObject, text: string) => void> = {
+	'response.output_text.delta': (item, text) => {
+		item.content = [{ type: 'output_text', text }];
+	},
+	'response.refusal.delta': (item, text) => {
+		item.content = [{ type: 'refusal', refusal: text }];
+	},
+	'response.function_call_arguments.delta': (item, text) => {
+		item.arguments = text;
+	},
+	'response.custom_tool_call_input.delta': (item, text) => {
+		item.input = text;
+	},
+	'response.reasoning_summary_text.delta': (item, text) => {
+		item.summary = [{ type: 'summary_text', text }];
+	},
+	'response.reasoning_text.delta': (item, text) => {
+		item.content = [{ type: 'reasoning_text', text }];
+	},
+};
+
+/**
+ * The closing event (`response.completed`, `.incomplete` or `.failed`)
+ * carries the whole response, so that is read. A stream cut short before it
+ * is rebuilt from the output items and the deltas of those not finished.
+ */
+function parseStream(events: unknown[]): LlmResponse {
+	if (events.length === 0) return {};
+
+	let model: string | undefined;
+	const items: JsonObject[] = [];
+	const finished = new Set<number>();
+	const deltas = new Map<
+		string,
+		{ index: number; type: string; text: string }
+	>();
+
+	for (const raw of events) {
+		const event = asRecord(raw);
+		const type = asString(event.type) ?? '';
+		if (
+			type === 'response.completed' ||
+			type === 'response.incomplete' ||
+			type === 'response.failed'
+		) {
+			return parseResponse(event.response);
+		}
+		model = asString(asRecord(event.response).model) ?? model;
+
+		const index = asNumber(event.output_index);
+		if (index === undefined) continue;
+		if (
+			type === 'response.output_item.added' ||
+			type === 'response.output_item.done'
+		) {
+			items[index] = { ...asRecord(event.item) };
+			if (type === 'response.output_item.done') finished.add(index);
+		} else if (Object.hasOwn(DELTAS, type)) {
+			const key = `${index} ${type}`;
+			const delta = deltas.get(key) ?? { index, type, text: '' };
+			delta.text += asString(event.delta) ?? '';
+			deltas.set(key, delta);
+		}
+	}
+
+	for (const { index, type, text } of deltas.values()) {
+		const item = items[index];
+		if (item && !finished.has(index)) DELTAS[type]?.(item, text);
+	}
+	return {
+		model,
+		output: { role: 'assistant', parts: items.flatMap(outputParts) },
+	};
+}
+
+export const openaiResponses: FormatParser = {
+	parseRequest,
+	parseResponse,
+	parseStream,
+};
