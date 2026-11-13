@@ -61,9 +61,12 @@ async function start(): Promise<void> {
 	}
 }
 
-process.on('SIGINT', async () => {
-	await proxy.stop();
-	process.exit(0);
-});
+// SIGTERM is what `docker stop` sends; as PID 1, Node would otherwise ignore it.
+for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+	process.on(signal, async () => {
+		await proxy.stop();
+		process.exit(0);
+	});
+}
 
 start();

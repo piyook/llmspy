@@ -19,12 +19,13 @@ It is for local development only. It listens on `127.0.0.1`, masks API keys in w
 
 ## Quick start
 
+With Docker:
+
 ```bash
-npm install
-npm run dev
+docker compose up -d --build
 ```
 
-This starts the proxy on `http://127.0.0.1:8080` and the web UI, with live reload, on `http://localhost:3000`. To run it without the dev servers, `npm run build` then `npm start`: the proxy serves the built UI itself at `http://127.0.0.1:8080/`.
+LLMSpy then runs in the background, restarts with Docker, and serves the proxy and the UI on `http://127.0.0.1:8080`. The port is published on the loopback interface only, so nothing outside your machine can reach it. `docker compose down` stops it; captured requests are kept in memory and go with it.
 
 Then point an app at the proxy by the provider's path prefix:
 
@@ -40,7 +41,7 @@ $env:ANTHROPIC_BASE_URL = "http://127.0.0.1:8080/anthropic"
 claude
 ```
 
-Each request then appears in the UI at `http://localhost:3000`.
+Each request then appears in the UI at `http://127.0.0.1:8080`.
 
 ## Configuration
 
@@ -59,12 +60,25 @@ LLMSPY_UPSTREAMS=ollama=http://localhost:11434,gemini=https://generativelanguage
 
 Names are lowercase letters, digits and dashes; `api`, `assets`, `events` and `ping` are taken by LLMSpy itself.
 
+With Docker, set `LLMSPY_UPSTREAMS` in the shell or in a `.env` file next to `compose.yaml` before `docker compose up`. Inside the container `localhost` is the container itself, so an upstream running on your machine is `host.docker.internal`:
+
+```bash
+LLMSPY_UPSTREAMS=ollama=http://host.docker.internal:11434 docker compose up -d
+```
+
 ## How it works
 
 - `proxy/`: one Node HTTP server. `/<prefix>/...` is forwarded to the upstream with the bytes unchanged, chunk by chunk, while a copy of each body is kept, decompressed (gzip, deflate, br, zstd) and decoded for display. `/events` (Server-Sent Events), `/api/requests` and `/api/clear` serve the UI, and any other path is a file from the built UI (`ui/dist`).
 - `ui/`: Svelte and Vite.
 
 ## Development
+
+```bash
+npm install
+npm run dev
+```
+
+This starts the proxy on `http://127.0.0.1:8080` and the web UI, with live reload, on `http://localhost:3000`. Stop the Docker container first, as both use port 8080. `npm run build` then `npm start` runs the built proxy, which serves the built UI itself at `http://127.0.0.1:8080/`.
 
 | Command             | What it does                        |
 | ------------------- | ----------------------------------- |

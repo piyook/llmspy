@@ -1,0 +1,17 @@
+# Allowlist: only what the build needs reaches the build context,
+# so .env, keys and local files never do.
+*
+!package.json
+!package-lock.json
+!tsconfig.base.json
+!proxy/package.json
+!proxy/tsconfig.json
+!proxy/tsconfig.build.json
+!proxy/src/
+!ui/package.json
+!ui/tsconfig.json
+!ui/svelte.config.js
+!ui/vite.config.mjs
+!ui/index.html
+!ui/src/
+**/*.test.ts
