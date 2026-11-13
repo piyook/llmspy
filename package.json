@@ -1,30 +1,41 @@
 {
-  "name": "lmmspy",
-  "version": "1.0.0",
-  "description": "Local developer tool for intercepting and displaying LLM API traffic",
-  "private": true,
-  "scripts": {
-    "postinstall": "npm --prefix ui install || true",
-    "dev": "concurrently \"npm run dev:proxy\" \"npm run dev:ui\"",
-    "dev:proxy": "cd proxy && tsx watch src/index.ts",
-    "dev:ui": "cd ui && npm run dev",
-    "build": "npm run build:proxy && npm run build:ui",
-    "build:proxy": "cd proxy && tsc",
-    "build:ui": "cd ui && vite build",
-    "start": "cd proxy && node dist/index.js",
-    "torch": "torch-it"
-  },
-  "dependencies": {
-    "node-forge": "^1.3.1"
-  },
-  "devDependencies": {
-    "concurrently": "^9.2.1",
-    "torch-it": "^2.2.0",
-    "typescript": "^6.0.2",
-    "@types/node": "^25.6.0",
-    "tsx": "^4.19.2"
-  },
-  "engines": {
-    "node": ">=18.0.0"
-  }
+	"name": "llmspy",
+	"version": "1.0.0",
+	"description": "Local developer tool for intercepting and displaying LLM API traffic",
+	"private": true,
+	"workspaces": [
+		"proxy",
+		"ui"
+	],
+	"scripts": {
+		"dev": "concurrently -n proxy,ui -c blue,green \"npm:dev:proxy\" \"npm:dev:ui\"",
+		"dev:proxy": "npm run dev -w proxy",
+		"dev:ui": "npm run dev -w ui",
+		"build": "npm run build --workspaces",
+		"start": "npm start -w proxy",
+		"lint": "biome check",
+		"lint:fix": "biome check --write",
+		"format": "biome format --write",
+		"typecheck": "npm run typecheck --workspaces",
+		"validate-branch-name": "node scripts/validate-branch-name.mjs",
+		"prepare": "husky",
+		"torch": "torch-it"
+	},
+	"commitlint": {
+		"extends": [
+			"@commitlint/config-conventional"
+		]
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.6.7",
+		"@commitlint/cli": "^21.2.4",
+		"@commitlint/config-conventional": "^21.2.4",
+		"concurrently": "^9.2.1",
+		"husky": "^9.1.7",
+		"torch-it": "^2.2.0",
+		"typescript": "^6.0.2"
+	},
+	"engines": {
+		"node": ">=26"
+	}
 }

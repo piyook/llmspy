@@ -1,6 +1,21 @@
-# LMMSpy
+# LLMSpy
 
 A local developer tool for intercepting and displaying LLM API traffic in real-time.
+
+## Why
+
+Apps and agents built on LLMs hide most of what they send. SDKs, frameworks and coding agents add their own system prompts, tool definitions, retries and parameters, and the actual request and response are rarely logged anywhere you can read them. When an agent misbehaves, burns tokens, or gives a strange answer, the first question is "what did it actually send to the model, and what came back?", and that is usually the hardest one to answer.
+
+LLMSpy answers it without changing any code. It runs on your machine as an HTTP(S) proxy: point a terminal or app at it with `HTTP_PROXY`/`HTTPS_PROXY`, and every call to an LLM API (Anthropic, OpenAI, Gemini, or hosts you add) shows up live in a web UI, with the full headers, prompt, parameters, response, status and latency. Traffic to any other host passes straight through untouched.
+
+Use it to:
+
+- see the real prompts, system messages and tool schemas a library or agent sends
+- debug failing or odd requests: errors, status codes, latency
+- understand token-heavy calls and why they cost what they do
+- compare what different tools send for the same task
+
+It is for local development only: it decrypts HTTPS with its own CA certificate, which you trust on your own machine, and it keeps the last 500 requests in memory only.
 
 ## Features
 
@@ -34,7 +49,7 @@ The proxy generates a self-signed CA certificate to intercept HTTPS traffic. You
 
 ```bash
 # Add to Keychain
-sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ~/.lmmspy/ca.crt
+sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain ~/.llmspy/ca.crt
 
 # Or double-click the certificate and set "Always Trust" in Keychain Access
 ```
@@ -45,14 +60,14 @@ sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keyc
 # Import to Trusted Root Certification Authorities
 certmgr.msc
 # Right-click "Trusted Root Certification Authorities" -> "All Tasks" -> "Import"
-# Browse to %USERPROFILE%\.lmmspy\ca.crt
+# Browse to %USERPROFILE%\.llmspy\ca.crt
 ```
 
 #### Linux (Ubuntu/Debian)
 
 ```bash
 # Copy to system certificates
-sudo cp ~/.lmmspy/ca.crt /usr/local/share/ca-certificates/lmmspy.crt
+sudo cp ~/.llmspy/ca.crt /usr/local/share/ca-certificates/llmspy.crt
 sudo update-ca-certificates
 ```
 
@@ -117,7 +132,7 @@ The proxy automatically intercepts requests to:
 ### Project Structure
 
 ```
-lmmspy/
+llmspy/
 packages/
   proxy/          # Node.js proxy server
     src/

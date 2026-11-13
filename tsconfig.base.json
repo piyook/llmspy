@@ -1,0 +1,16 @@
+{
+	"compilerOptions": {
+		"strict": true,
+		"esModuleInterop": true,
+		"skipLibCheck": true,
+		"forceConsistentCasingInFileNames": true,
+		"moduleResolution": "bundler",
+		"target": "ES2022",
+		"module": "ESNext",
+		"resolveJsonModule": true,
+		"allowSyntheticDefaultImports": true,
+		"noImplicitAny": false,
+		"noImplicitReturns": true,
+		"noImplicitThis": true
+	}
+}
