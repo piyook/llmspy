@@ -46,6 +46,59 @@ body {
 	color: #646cff;
 }
 
+.title {
+	display: flex;
+	align-items: center;
+	gap: 0.75rem;
+}
+
+/* Proxy connection: a green ear with moving sound waves, or a slashed red one. */
+.status-icon {
+	display: inline-flex;
+	color: #f44336;
+}
+
+.status-icon.connected {
+	color: #4caf50;
+}
+
+.wave {
+	animation: listen 1.5s ease-in-out infinite;
+}
+
+.wave-mid {
+	animation-delay: 0.25s;
+}
+
+.wave-near {
+	animation-delay: 0.5s;
+}
+
+@keyframes listen {
+	0%,
+	100% {
+		opacity: 0.15;
+	}
+	30% {
+		opacity: 1;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.wave {
+		animation: none;
+	}
+}
+
+.visually-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+
 .controls {
 	display: flex;
 	gap: 1rem;

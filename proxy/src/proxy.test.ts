@@ -180,6 +180,14 @@ describe('ProxyServer', () => {
 		expect(captured.response).toBeUndefined();
 	});
 
+	it('reports the port it is listening on from /ping', async () => {
+		const { base } = await startProxy('http://127.0.0.1:1');
+
+		const res = await request(`${base}/ping`);
+		const body = JSON.parse((await readAll(res)).toString());
+		expect(body.port).toBe(Number(new URL(base).port));
+	});
+
 	it('opens /events straight away when there is nothing to replay', async () => {
 		const { base } = await startProxy('http://127.0.0.1:1');
 
