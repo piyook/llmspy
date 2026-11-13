@@ -5,8 +5,6 @@ export default {
 		typescript: true,
 	}),
 	compilerOptions: {
-		compatibility: {
-			componentApi: 4,
-		},
+		runes: true,
 	},
 };

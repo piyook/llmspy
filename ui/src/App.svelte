@@ -1,200 +1,72 @@
 <script lang="ts">
 import { onMount } from 'svelte';
+import { SvelteMap } from 'svelte/reactivity';
+import { matchesSearch, newestFirst } from './lib/requests.js';
+import type { CapturedRequest } from './lib/types.js';
+import RequestItem from './RequestItem.svelte';
+import Toolbar from './Toolbar.svelte';
 
-interface InterceptedRequest {
-	id: string;
-	timestamp: string;
-	host: string;
-	method: string;
-	path: string;
-	headers: Record<string, string>;
-	body: string;
-	response?: {
-		status: number;
-		headers: Record<string, string>;
-		body: string;
-	};
-	latency?: number;
-	error?: string;
-}
+/** How long to wait before reopening `/events` after the browser gives up on it. */
+const RECONNECT_MS = 3000;
 
-let requests: InterceptedRequest[] = [];
-let searchTerm = '';
-let expandedRequests: Set<string> = new Set();
-let eventSource: EventSource | null = null;
+// Keyed by id: `/events` replays the whole store on every (re)connect,
+// so a request seen again replaces itself instead of being added twice.
+const requests = new SvelteMap<string, CapturedRequest>();
+let search = $state('');
+
+const visible = $derived(
+	[...requests.values()]
+		.filter((request) => matchesSearch(request, search))
+		.sort(newestFirst),
+);
 
 onMount(() => {
-	// Load initial requests
-	fetch('/api/requests')
-		.then((res) => res.json())
-		.then((data) => {
-			requests = data;
-		})
-		.catch((err) => {
-			console.error('Failed to load initial requests:', err);
-		});
+	let events: EventSource | undefined;
+	let retry: ReturnType<typeof setTimeout> | undefined;
 
-	// Setup SSE connection
-	eventSource = new EventSource('/events');
-
-	eventSource.onmessage = (event) => {
-		const newRequest: InterceptedRequest = JSON.parse(event.data);
-		requests = [newRequest, ...requests];
-	};
-
-	eventSource.onerror = (error) => {
-		console.error('SSE error:', error);
-		// Retry connection after 5 seconds
-		setTimeout(() => {
-			if (eventSource) {
-				eventSource.close();
+	function connect() {
+		events = new EventSource('/events');
+		events.onmessage = (event) => {
+			const request: CapturedRequest = JSON.parse(event.data);
+			requests.set(request.id, request);
+		};
+		// EventSource retries a dropped connection by itself. It stops for
+		// good (CLOSED) only on an HTTP error, e.g. the Vite dev proxy's 5xx
+		// while the proxy restarts, so only then open a new one.
+		events.onerror = () => {
+			if (events?.readyState === EventSource.CLOSED) {
+				retry = setTimeout(connect, RECONNECT_MS);
 			}
-			eventSource = new EventSource('/events');
-		}, 5000);
-	};
+		};
+	}
 
+	connect();
 	return () => {
-		if (eventSource) {
-			eventSource.close();
-		}
+		clearTimeout(retry);
+		events?.close();
 	};
 });
-
-function filteredRequests(): InterceptedRequest[] {
-	if (!searchTerm) return requests;
-
-	const term = searchTerm.toLowerCase();
-	return requests.filter(
-		(req) =>
-			req.host.toLowerCase().includes(term) ||
-			req.path.toLowerCase().includes(term) ||
-			req.body.toLowerCase().includes(term) ||
-			req.response?.body?.toLowerCase().includes(term),
-	);
-}
-
-function toggleExpanded(id: string) {
-	if (expandedRequests.has(id)) {
-		expandedRequests.delete(id);
-	} else {
-		expandedRequests.add(id);
-	}
-	expandedRequests = new Set(expandedRequests);
-}
 
 async function clearRequests() {
 	try {
 		await fetch('/api/clear', { method: 'POST' });
-		requests = [];
+		requests.clear();
 	} catch (err) {
 		console.error('Failed to clear requests:', err);
 	}
 }
-
-function formatTimestamp(timestamp: string): string {
-	return new Date(timestamp).toLocaleTimeString();
-}
-
-function formatLatency(latency?: number): string {
-	if (!latency) return '';
-	return latency < 1000 ? `${latency}ms` : `${(latency / 1000).toFixed(2)}s`;
-}
-
-function formatJson(obj: unknown): string {
-	return JSON.stringify(obj, null, 2);
-}
-
-function getStatusClass(status?: number): string {
-	if (!status) return '';
-	return status >= 200 && status < 300 ? 'status-success' : 'status-error';
-}
 </script>
 
-<div class="header">
-  <h1>LLMSpy</h1>
-  <div class="controls">
-    <input 
-      type="text" 
-      placeholder="Search requests..." 
-      class="search"
-      bind:value={searchTerm}
-    />
-    <button class="clear-btn" on:click={clearRequests}>
-      Clear All
-    </button>
-  </div>
-</div>
+<Toolbar bind:search onclear={clearRequests} />
 
 <div class="requests">
-  {#each filteredRequests() as request (request.id)}
-    <div class="request-item" on:click={() => toggleExpanded(request.id)}>
-      <div class="request-header">
-        <div class="request-host">{request.host}</div>
-        <div class="request-time">{formatTimestamp(request.timestamp)}</div>
-      </div>
-      
-      <div class="request-details">
-        <div class="request-detail">
-          <span class="request-detail-label">Method</span>
-          <span class="request-detail-value">{request.method}</span>
-        </div>
-        <div class="request-detail">
-          <span class="request-detail-label">Path</span>
-          <span class="request-detail-value">{request.path}</span>
-        </div>
-        {#if request.response}
-          <div class="request-detail">
-            <span class="request-detail-label">Status</span>
-            <span class="request-detail-value {getStatusClass(request.response.status)}">
-              {request.response.status}
-            </span>
-          </div>
-        {/if}
-        {#if request.latency}
-          <div class="request-detail">
-            <span class="request-detail-label">Latency</span>
-            <span class="request-detail-value latency">{formatLatency(request.latency)}</span>
-          </div>
-        {/if}
-        {#if request.error}
-          <div class="request-detail">
-            <span class="request-detail-label">Error</span>
-            <span class="request-detail-value status-error">{request.error}</span>
-          </div>
-        {/if}
-      </div>
-
-      {#if expandedRequests.has(request.id)}
-        <div class="expanded-content">
-          <h3>Request Headers</h3>
-          <div class="json-viewer">{formatJson(request.headers)}</div>
-          
-          <h3>Request Body</h3>
-          <div class="json-viewer">
-            {request.body ? formatJson(JSON.parse(request.body || '{}')) : 'No body'}
-          </div>
-          
-          {#if request.response}
-            <h3>Response Headers</h3>
-            <div class="json-viewer">{formatJson(request.response.headers)}</div>
-            
-            <h3>Response Body</h3>
-            <div class="json-viewer">
-              {request.response.body ? formatJson(JSON.parse(request.response.body || '{}')) : 'No body'}
-            </div>
-          {/if}
-        </div>
-      {/if}
+  {#each visible as request (request.id)}
+    <RequestItem {request} />
+  {:else}
+    <div class="no-requests">
+      {search
+        ? 'No requests match your search'
+        : 'No requests captured yet. Point an app at LLMSpy, e.g. ANTHROPIC_BASE_URL=http://127.0.0.1:8080/anthropic'}
     </div>
   {/each}
-
-  {#if filteredRequests().length === 0}
-    <div class="no-requests">
-      {searchTerm ? 'No requests match your search' : 'No requests captured yet. Point an app at LLMSpy, e.g. ANTHROPIC_BASE_URL=http://127.0.0.1:8080/anthropic'}
-    </div>
-  {/if}
 </div>
-
-<style>
-  /* Styles are imported from app.css */
-</style>

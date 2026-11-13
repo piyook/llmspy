@@ -20,8 +20,6 @@
 
 body {
 	margin: 0;
-	display: flex;
-	place-items: center;
 	min-width: 320px;
 	min-height: 100vh;
 }
@@ -30,15 +28,21 @@ body {
 	width: 100%;
 	max-width: 1280px;
 	margin: 0 auto;
-	padding: 2rem;
+	padding: 0 2rem 2rem;
 	text-align: left;
 }
 
 .header {
+	position: sticky;
+	top: 0;
+	z-index: 1;
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	margin-bottom: 2rem;
+	padding: 1rem 0;
+	margin-bottom: 1rem;
+	background: #242424;
+	border-bottom: 1px solid #444;
 }
 
 .header h1 {
@@ -92,12 +96,29 @@ body {
 	border-radius: 8px;
 	padding: 1rem;
 	background: #2a2a2a;
-	cursor: pointer;
 	transition: all 0.2s;
 }
 
 .request-item:hover {
 	border-color: #646cff;
+}
+
+.request-summary {
+	display: block;
+	width: 100%;
+	padding: 0;
+	border: none;
+	background: none;
+	color: inherit;
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+
+.request-summary:focus-visible {
+	outline: 2px solid #646cff;
+	outline-offset: 4px;
+	border-radius: 4px;
 }
 
 .request-header {
@@ -159,6 +180,7 @@ body {
 }
 
 .json-viewer {
+	margin: 0;
 	background: #1a1a1a;
 	border: 1px solid #444;
 	border-radius: 4px;
