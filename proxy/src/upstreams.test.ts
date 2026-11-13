@@ -23,6 +23,7 @@ describe('parseUpstreams', () => {
 		['no equals sign', 'ollama'],
 		['empty name', '=http://localhost'],
 		['reserved name', 'api=http://localhost'],
+		['name of the UI assets folder', 'assets=http://localhost'],
 		['bad name', 'My_Host=http://localhost'],
 		['invalid url', 'ollama=localhost:11434'],
 		['non-http url', 'ollama=ftp://localhost'],

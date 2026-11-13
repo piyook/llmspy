@@ -1,6 +1,7 @@
 import * as http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { forwardAndCapture } from './capture.js';
+import { serveStatic } from './static.js';
 import type { RequestStore } from './store.js';
 import type { CapturedRequest, ProxyConfig } from './types.js';
 import { resolveRoute } from './upstreams.js';
@@ -48,13 +49,7 @@ export class ProxyServer {
 
 		const route = resolveRoute(url, this.config.upstreams);
 		if (!route) {
-			const prefixes = [...this.config.upstreams.keys()]
-				.map((name) => `/${name}`)
-				.join(', ');
-			res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
-			res.end(
-				`LLMSpy: no upstream for ${url}. Known prefixes: ${prefixes}`,
-			);
+			this.handleStaticOrNotFound(req, res);
 			return;
 		}
 
@@ -67,6 +62,22 @@ export class ProxyServer {
 				this.store.addRequest(captured);
 				this.broadcast(captured);
 			},
+		);
+	}
+
+	private async handleStaticOrNotFound(
+		req: http.IncomingMessage,
+		res: http.ServerResponse,
+	): Promise<void> {
+		const { uiDir } = this.config;
+		if (uiDir && (await serveStatic(req, res, uiDir))) return;
+
+		const prefixes = [...this.config.upstreams.keys()]
+			.map((name) => `/${name}`)
+			.join(', ');
+		res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
+		res.end(
+			`LLMSpy: no upstream for ${req.url}. Known prefixes: ${prefixes}`,
 		);
 	}
 
@@ -85,7 +96,6 @@ export class ProxyServer {
 			'Content-Type': 'text/event-stream',
 			'Cache-Control': 'no-cache',
 			Connection: 'keep-alive',
-			'Access-Control-Allow-Origin': '*',
 		});
 
 		this.sseClients.add(res);
@@ -99,18 +109,12 @@ export class ProxyServer {
 	}
 
 	private handleGetRequests(res: http.ServerResponse): void {
-		res.writeHead(200, {
-			'Content-Type': 'application/json',
-			'Access-Control-Allow-Origin': '*',
-		});
+		res.writeHead(200, { 'Content-Type': 'application/json' });
 		res.end(JSON.stringify(this.store.getRequests()));
 	}
 
 	private handlePing(res: http.ServerResponse): void {
-		res.writeHead(200, {
-			'Content-Type': 'application/json',
-			'Access-Control-Allow-Origin': '*',
-		});
+		res.writeHead(200, { 'Content-Type': 'application/json' });
 		res.end(
 			JSON.stringify({
 				status: 'running',
@@ -122,10 +126,7 @@ export class ProxyServer {
 
 	private handleClearRequests(res: http.ServerResponse): void {
 		this.store.clear();
-		res.writeHead(200, {
-			'Content-Type': 'application/json',
-			'Access-Control-Allow-Origin': '*',
-		});
+		res.writeHead(200, { 'Content-Type': 'application/json' });
 		res.end(JSON.stringify({ success: true }));
 	}
 
