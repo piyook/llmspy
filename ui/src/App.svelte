@@ -25,7 +25,7 @@ let eventSource: EventSource | null = null;
 
 onMount(() => {
 	// Load initial requests
-	fetch('http://localhost:8080/api/requests')
+	fetch('/api/requests')
 		.then((res) => res.json())
 		.then((data) => {
 			requests = data;
@@ -35,7 +35,7 @@ onMount(() => {
 		});
 
 	// Setup SSE connection
-	eventSource = new EventSource('http://localhost:8080/events');
+	eventSource = new EventSource('/events');
 
 	eventSource.onmessage = (event) => {
 		const newRequest: InterceptedRequest = JSON.parse(event.data);
@@ -49,7 +49,7 @@ onMount(() => {
 			if (eventSource) {
 				eventSource.close();
 			}
-			eventSource = new EventSource('http://localhost:8080/events');
+			eventSource = new EventSource('/events');
 		}, 5000);
 	};
 
@@ -84,7 +84,7 @@ function toggleExpanded(id: string) {
 
 async function clearRequests() {
 	try {
-		await fetch('http://localhost:8080/api/clear', { method: 'POST' });
+		await fetch('/api/clear', { method: 'POST' });
 		requests = [];
 	} catch (err) {
 		console.error('Failed to clear requests:', err);
@@ -190,7 +190,7 @@ function getStatusClass(status?: number): string {
 
   {#if filteredRequests().length === 0}
     <div class="no-requests">
-      {searchTerm ? 'No requests match your search' : 'No requests intercepted yet. Make sure your HTTP_PROXY/HTTPS_PROXY are set to localhost:8080'}
+      {searchTerm ? 'No requests match your search' : 'No requests captured yet. Point an app at LLMSpy, e.g. ANTHROPIC_BASE_URL=http://127.0.0.1:8080/anthropic'}
     </div>
   {/if}
 </div>

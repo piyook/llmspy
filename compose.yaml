@@ -1,0 +1,13 @@
+services:
+  llmspy:
+    build: .
+    image: llmspy
+    restart: unless-stopped
+    ports:
+      # Published on the host's loopback only: captured prompts stay on this machine.
+      - "127.0.0.1:8080:8080"
+    environment:
+      LLMSPY_UPSTREAMS: ${LLMSPY_UPSTREAMS:-}
+    extra_hosts:
+      # Lets an upstream on the host be reached as host.docker.internal (needed on Linux).
+      - "host.docker.internal:host-gateway"

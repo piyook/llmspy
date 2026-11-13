@@ -3,8 +3,8 @@ const DEFAULT_UPSTREAMS: Record<string, string> = {
 	openai: 'https://api.openai.com',
 };
 
-/** First path segments that LLMSpy's own endpoints use. */
-const RESERVED_NAMES = new Set(['api', 'events', 'ping']);
+/** First path segments that LLMSpy's own endpoints and the built UI use. */
+const RESERVED_NAMES = new Set(['api', 'assets', 'events', 'ping']);
 const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 
 /**

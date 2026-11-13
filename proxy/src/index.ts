@@ -1,18 +1,21 @@
+import { existsSync } from 'node:fs';
+import * as path from 'node:path';
 import { ProxyServer } from './proxy.js';
 import { RequestStore } from './store.js';
 import type { ProxyConfig } from './types.js';
 import { parseUpstreams } from './upstreams.js';
 
-const host = '127.0.0.1';
-const uiPort = Number.parseInt(process.env.UI_PORT ?? '3000', 10);
+// Built layout: proxy/dist/index.js next to ui/dist/ (also in the image).
+const uiDir = path.resolve(import.meta.dirname, '../../ui/dist');
 
 let config: ProxyConfig;
 try {
 	config = {
 		port: Number.parseInt(process.env.PROXY_PORT ?? '8080', 10),
-		host,
+		host: process.env.LLMSPY_HOST ?? '127.0.0.1',
 		upstreams: parseUpstreams(process.env.LLMSPY_UPSTREAMS),
 		maxRequests: 500,
+		uiDir,
 	};
 } catch (error) {
 	console.error((error as Error).message);
@@ -25,13 +28,24 @@ const proxy = new ProxyServer(config, store);
 async function start(): Promise<void> {
 	try {
 		const port = await proxy.start();
-		const base = `http://${host}:${port}`;
+		// In a container LLMSpy listens on all interfaces, but it is reached
+		// through the port published on the host's loopback.
+		const shownHost = ['0.0.0.0', '::'].includes(config.host)
+			? '127.0.0.1'
+			: config.host;
+		const base = `http://${shownHost}:${port}`;
 		const width = Math.max(
 			...[...config.upstreams.keys()].map((n) => n.length),
 		);
 
-		console.log(`LLMSpy listening on ${base}`);
-		console.log(`UI: http://localhost:${uiPort}\n`);
+		console.log(`LLMSpy listening on ${config.host}:${port}`);
+		if (existsSync(path.join(uiDir, 'index.html'))) {
+			console.log(`UI: ${base}/\n`);
+		} else {
+			console.log(
+				'UI: not built here (npm run build); `npm run dev` serves it on http://localhost:3000\n',
+			);
+		}
 		console.log('Point an app at one of these base URLs:');
 		for (const [name, url] of config.upstreams) {
 			console.log(
@@ -47,9 +61,12 @@ async function start(): Promise<void> {
 	}
 }
 
-process.on('SIGINT', async () => {
-	await proxy.stop();
-	process.exit(0);
-});
+// SIGTERM is what `docker stop` sends; as PID 1, Node would otherwise ignore it.
+for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+	process.on(signal, async () => {
+		await proxy.stop();
+		process.exit(0);
+	});
+}
 
 start();
