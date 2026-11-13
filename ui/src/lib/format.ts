@@ -6,6 +6,12 @@ export function formatLatency(ms: number): string {
 	return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(2)}s`;
 }
 
+/** `1234` -> `1.2k`; `?` when the provider did not report it. */
+export function formatTokens(count?: number): string {
+	if (count === undefined) return '?';
+	return count < 1000 ? `${count}` : `${(count / 1000).toFixed(1)}k`;
+}
+
 export function statusClass(status: number): string {
 	return status >= 200 && status < 300 ? 'status-success' : 'status-error';
 }
