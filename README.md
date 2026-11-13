@@ -88,6 +88,29 @@ This starts the proxy on `http://127.0.0.1:8080` and the web UI, with live reloa
 | `npm test`          | Run the tests                       |
 | `npm run lint`      | Biome lint and format check         |
 | `npm run typecheck` | `tsc` for the proxy, `svelte-check` for the UI |
+| `npm run mock`      | Mock LLM APIs for testing (below)   |
+
+### Testing without an API key
+
+`npm run mock` starts two [llmock](https://www.npmjs.com/package/llmock) servers, with their config in `mock/.llmockrc.json`: the Anthropic Messages API on `http://127.0.0.1:8001` and OpenAI Chat Completions on `http://127.0.0.1:8002`. They reply with generated text, so no key or network is needed. Point LLMSpy at them, then send traffic:
+
+```bash
+LLMSPY_UPSTREAMS=llmock=http://127.0.0.1:8001,llmock-openai=http://127.0.0.1:8002 npm run dev
+node scripts/mock-traffic.mjs
+```
+
+The script sends one request of each kind below. To use the mocks from your own client, set its base URL to `http://127.0.0.1:8080/llmock` (Anthropic) or `http://127.0.0.1:8080/llmock-openai/v1` (OpenAI), with any non-empty key. A marker in the last message picks the reply:
+
+| Marker          | Reply                                                       |
+| --------------- | ----------------------------------------------------------- |
+| `#tools`        | A `get_weather` tool call (Anthropic); a tool result containing `sunny` gets the final answer |
+| `#max-tokens`   | A reply cut off at the token limit                           |
+| `#refusal`      | A refusal                                                    |
+| `#rate-limit`   | HTTP 429                                                     |
+| `#stream-error` | A stream that sends an error event part-way through          |
+| `#stream-drop`  | A stream whose connection is cut part-way through            |
+
+Anything else gets random lorem ipsum. The Anthropic mock streams when the request asks for it; the OpenAI mock does not stream unless switched with `PATCH /admin/settings` (see llmock's docs), which the script does.
 
 ## Troubleshooting
 
