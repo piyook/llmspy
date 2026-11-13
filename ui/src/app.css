@@ -52,14 +52,14 @@ body {
 	gap: 0.75rem;
 }
 
-/* Proxy connection: a green ear with moving sound waves, or a slashed red one. */
+/* Proxy connection: an ear in the title colour with moving sound waves, or a slashed red one. */
 .status-icon {
 	display: inline-flex;
 	color: #f44336;
 }
 
 .status-icon.connected {
-	color: #4caf50;
+	color: #646cff;
 }
 
 .wave {
