@@ -108,7 +108,7 @@ Examples, with the base URL to give the app:
 
 ### Running locally
 
-Set the variable in the shell that starts LLMSpy. In PowerShell:
+Put the variable in a `.env` file at the root of the repo (copy `.env.example` to start); `npm start` and `npm run dev` read it. Or set it in the shell that starts LLMSpy, which wins over `.env`. In PowerShell:
 
 ```powershell
 $env:LLMSPY_UPSTREAMS = "openrouter=https://openrouter.ai/api/v1,ollama=http://localhost:11434"
@@ -135,6 +135,8 @@ npm run start:docker
 ```
 
 Inside the container `localhost` is the container itself, so an upstream running on your machine, such as Ollama or the [mocks](#testing-without-an-api-key), is `host.docker.internal`. External URLs are the same as when running locally, and apps are still pointed at `http://127.0.0.1:8080/<name>` from your machine.
+
+The same `.env` serves both, except for upstreams on your machine: a local run reaches them at `localhost`, Docker at `host.docker.internal`. If you switch between the two, override the variable in the shell for local runs.
 
 ### Checking them
 
