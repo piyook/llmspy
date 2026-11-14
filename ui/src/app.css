@@ -22,6 +22,8 @@
 	--danger-button: #e53935;
 	--danger-button-hover: #c62828;
 	--on-danger: white;
+	--diff-added-bg: #e3f4e4;
+	--diff-removed-bg: #fbe4e4;
 
 	color-scheme: light;
 	color: var(--text);
@@ -59,6 +61,8 @@
 		--danger-button: #ff4444;
 		--danger-button-hover: #ff6666;
 		--on-danger: white;
+		--diff-added-bg: rgba(76, 175, 80, 0.18);
+		--diff-removed-bg: rgba(244, 67, 54, 0.18);
 
 		color-scheme: dark;
 	}
@@ -83,6 +87,8 @@
 	--danger-button: #ff4444;
 	--danger-button-hover: #ff6666;
 	--on-danger: white;
+	--diff-added-bg: rgba(76, 175, 80, 0.18);
+	--diff-removed-bg: rgba(244, 67, 54, 0.18);
 
 	color-scheme: dark;
 }
@@ -437,6 +443,29 @@ body {
 	background: var(--surface-selected);
 }
 
+/* The call the Compare tab compares the selected one with. */
+.row.compared {
+	border-color: var(--accent);
+	border-style: dashed;
+}
+
+/* While picking a call to compare with, a click picks instead of selecting. */
+.list.picking .row {
+	cursor: crosshair;
+}
+
+.pick-hint {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem;
+	margin: 0;
+	padding: 0.4rem 0.75rem;
+	border: 1px solid var(--accent);
+	border-radius: 8px;
+	font-size: 0.85rem;
+}
+
 .row:focus-visible {
 	outline: 2px solid var(--accent);
 	outline-offset: 2px;
@@ -699,6 +728,134 @@ body {
 .part-result {
 	font-family: "Courier New", monospace;
 	font-size: 0.8rem;
+}
+
+/* Compare view. */
+.compare-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 0.75rem;
+	margin-bottom: 1rem;
+}
+
+.compare-calls {
+	display: grid;
+	grid-template-columns: auto 1fr;
+	gap: 0.15rem 0.75rem;
+	font-size: 0.85rem;
+}
+
+.compare-role {
+	color: var(--text-muted);
+}
+
+.compare-call {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.75rem;
+}
+
+.compare-summary {
+	display: grid;
+	grid-template-columns: max-content 1fr;
+	gap: 0.35rem 1rem;
+	margin: 0 0 1rem;
+	font-size: 0.9rem;
+}
+
+.compare-summary dt {
+	color: var(--text-muted);
+}
+
+.compare-summary dd {
+	margin: 0;
+	overflow-wrap: anywhere;
+}
+
+.compare-old {
+	color: var(--danger);
+}
+
+.compare-new {
+	color: var(--success);
+}
+
+.compare-note {
+	color: var(--text-muted);
+	font-size: 0.85rem;
+}
+
+.compare-usage {
+	margin-bottom: 1rem;
+	border-collapse: collapse;
+	font-size: 0.85rem;
+}
+
+.compare-usage th,
+.compare-usage td {
+	padding: 0.15rem 1rem 0.15rem 0;
+	text-align: right;
+}
+
+.compare-usage th:first-child {
+	text-align: left;
+	font-weight: normal;
+	color: var(--text-muted);
+}
+
+.compare-usage thead th {
+	font-weight: normal;
+	color: var(--text-muted);
+}
+
+/* A line diff: one line per row, + added, - removed. */
+.diff {
+	padding: 0.5rem 0;
+	border: 1px solid var(--border);
+	border-radius: 4px;
+	background: var(--surface-sunken);
+	font-family: "Courier New", monospace;
+	font-size: 0.8rem;
+}
+
+.diff-line {
+	padding: 0 0.75rem;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.diff-sign {
+	display: inline-block;
+	width: 1.25rem;
+	color: var(--text-dim);
+	user-select: none;
+}
+
+.diff-added {
+	background: var(--diff-added-bg);
+}
+
+.diff-removed {
+	background: var(--diff-removed-bg);
+}
+
+.diff-fold {
+	display: block;
+	width: 100%;
+	padding: 0.1rem 0.75rem;
+	border: none;
+	background: none;
+	color: var(--text-muted);
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+
+.diff-fold:hover {
+	color: var(--text-strong);
+	background: var(--surface);
 }
 
 .no-requests {
