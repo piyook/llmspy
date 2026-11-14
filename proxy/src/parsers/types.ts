@@ -47,6 +47,13 @@ export interface LlmRequest {
 	tools?: LlmTool[];
 }
 
+/** An error the provider reported inside a successful (2xx) response. */
+export interface LlmError {
+	/** The provider's error type or code, such as `overloaded_error`. */
+	type?: string;
+	message: string;
+}
+
 /** What a parser reads from a response body or a reassembled stream. */
 export interface LlmResponse {
 	model?: string;
@@ -54,6 +61,8 @@ export interface LlmResponse {
 	output?: LlmMessage;
 	stopReason?: string;
 	usage?: LlmUsage;
+	/** Set when the reply failed part-way, such as an error event in a stream. */
+	error?: LlmError;
 }
 
 /** One captured exchange read as an LLM API call, in the same shape for every format. */

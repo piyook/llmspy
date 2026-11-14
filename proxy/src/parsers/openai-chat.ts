@@ -1,3 +1,4 @@
+import { toLlmError } from './error.js';
 import {
 	asArray,
 	asNumber,
@@ -9,6 +10,7 @@ import {
 } from './json.js';
 import type {
 	FormatParser,
+	LlmError,
 	LlmMessage,
 	LlmPart,
 	LlmRequest,
@@ -179,7 +181,8 @@ function parseResponse(body: unknown): LlmResponse {
  * Joins the deltas of the first choice into one message: text pieces in
  * order, tool calls by their `index` with the id and name from the first
  * delta and the argument pieces appended. Usage comes in a last chunk with
- * no choices, only when the request asked for it (`stream_options`).
+ * no choices, only when the request asked for it (`stream_options`). A
+ * failure part-way is a chunk holding an `error` object and no choices.
  */
 function parseStream(events: unknown[]): LlmResponse {
 	if (events.length === 0) return {};
@@ -187,6 +190,7 @@ function parseStream(events: unknown[]): LlmResponse {
 	let model: string | undefined;
 	let stopReason: string | undefined;
 	let usage: unknown;
+	let error: LlmError | undefined;
 	let content = '';
 	let reasoning = '';
 	let refusal = '';
@@ -196,6 +200,9 @@ function parseStream(events: unknown[]): LlmResponse {
 		const chunk = asRecord(raw);
 		model = asString(chunk.model) ?? model;
 		if (isRecord(chunk.usage)) usage = chunk.usage;
+		if (isRecord(chunk.error)) {
+			error = toLlmError(chunk.error) ?? { message: '' };
+		}
 
 		const choice = asArray(chunk.choices)
 			.map(asRecord)
@@ -236,6 +243,7 @@ function parseStream(events: unknown[]): LlmResponse {
 		output: { role: 'assistant', parts: assistantParts(message) },
 		stopReason,
 		usage: toUsage(usage),
+		...(error && { error }),
 	};
 }
 

@@ -75,6 +75,18 @@ function setAll(value: boolean) {
   />
 {/if}
 
+{#if llm.error}
+  <p class="notice error-notice" role="alert">
+    <strong>The provider reported an error{llm.error.type ? `: ${llm.error.type}` : ''}</strong>
+    {#if llm.error.message}<span>{llm.error.message}</span>{/if}
+    <span class="error-hint">
+      {llm.output?.parts.length
+        ? 'The reply above is what arrived before it.'
+        : 'No reply arrived before it.'}
+    </span>
+  </p>
+{/if}
+
 {#if llm.stopReason || usage.length}
   <p class="conv-footer">
     {#if llm.stopReason}<span>stop: {llm.stopReason}</span>{/if}

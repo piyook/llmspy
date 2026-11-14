@@ -1,3 +1,4 @@
+import { toLlmError } from './error.js';
 import {
 	asArray,
 	asNumber,
@@ -9,6 +10,7 @@ import {
 } from './json.js';
 import type {
 	FormatParser,
+	LlmError,
 	LlmMessage,
 	LlmPart,
 	LlmRequest,
@@ -185,10 +187,12 @@ function parseRequest(body: unknown): LlmRequest {
 
 /**
  * There is no finish reason: `status` is `completed`, `incomplete` or
- * `failed`, and an incomplete response says why (`max_output_tokens`).
+ * `failed`, and an incomplete response says why (`max_output_tokens`). A
+ * failed response says what went wrong in `error`.
  */
 function parseResponse(body: unknown): LlmResponse {
 	const b = asRecord(body);
+	const error = toLlmError(b.error);
 	return {
 		model: asString(b.model),
 		output: {
@@ -199,7 +203,16 @@ function parseResponse(body: unknown): LlmResponse {
 			asString(asRecord(b.incomplete_details).reason) ??
 			asString(b.status),
 		usage: toUsage(b.usage),
+		...(error && { error }),
 	};
+}
+
+/** An `error` event has `code` and `message` at its top level, or in an `error` object. */
+function errorEvent(event: JsonObject): LlmError {
+	const fields = isRecord(event.error)
+		? event.error
+		: { code: event.code, message: event.message };
+	return toLlmError(fields) ?? { message: '' };
 }
 
 /** Delta events, and the field of their item they add to. */
@@ -228,11 +241,13 @@ const DELTAS: Record<string, (item: JsonObject, text: string) => void> = {
  * The closing event (`response.completed`, `.incomplete` or `.failed`)
  * carries the whole response, so that is read. A stream cut short before it
  * is rebuilt from the output items and the deltas of those not finished.
+ * An `error` event is kept unless the closing event names its own error.
  */
 function parseStream(events: unknown[]): LlmResponse {
 	if (events.length === 0) return {};
 
 	let model: string | undefined;
+	let error: LlmError | undefined;
 	const items: JsonObject[] = [];
 	const finished = new Set<number>();
 	const deltas = new Map<
@@ -248,7 +263,13 @@ function parseStream(events: unknown[]): LlmResponse {
 			type === 'response.incomplete' ||
 			type === 'response.failed'
 		) {
-			return parseResponse(event.response);
+			const response = parseResponse(event.response);
+			if (error && !response.error) response.error = error;
+			return response;
+		}
+		if (type === 'error') {
+			error = errorEvent(event);
+			continue;
 		}
 		model = asString(asRecord(event.response).model) ?? model;
 
@@ -275,6 +296,7 @@ function parseStream(events: unknown[]): LlmResponse {
 	return {
 		model,
 		output: { role: 'assistant', parts: items.flatMap(outputParts) },
+		...(error && { error }),
 	};
 }
 

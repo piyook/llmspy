@@ -324,6 +324,54 @@ describe('anthropic parseStream', () => {
 		]);
 	});
 
+	it('keeps the reply so far and the error when an error event ends the stream', () => {
+		const response = anthropicMessages.parseStream([
+			start,
+			{
+				type: 'content_block_start',
+				index: 0,
+				content_block: { type: 'text', text: '' },
+			},
+			{
+				type: 'content_block_delta',
+				index: 0,
+				delta: { type: 'text_delta', text: 'Lorem ' },
+			},
+			{
+				type: 'error',
+				error: { type: 'overloaded_error', message: 'Overloaded' },
+			},
+		]);
+		expect(response.output?.parts).toEqual([
+			{ type: 'text', text: 'Lorem ' },
+		]);
+		expect(response.stopReason).toBeUndefined();
+		expect(response.error).toEqual({
+			type: 'overloaded_error',
+			message: 'Overloaded',
+		});
+	});
+
+	it('reads an error sent before the message started', () => {
+		const response = anthropicMessages.parseStream([
+			{
+				type: 'error',
+				error: { type: 'api_error', message: 'Internal error' },
+			},
+		]);
+		expect(response).toEqual({
+			error: { type: 'api_error', message: 'Internal error' },
+		});
+	});
+
+	it('sets no error on a stream that finished', () => {
+		const response = anthropicMessages.parseStream([
+			start,
+			{ type: 'message_stop' },
+		]);
+		expect(response).not.toHaveProperty('error');
+	});
+
 	it('returns nothing when the stream never started', () => {
 		expect(anthropicMessages.parseStream([])).toEqual({});
 	});

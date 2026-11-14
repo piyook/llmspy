@@ -34,6 +34,10 @@ const hasTokens = $derived(
     {:else if request.error}
       <span class="status-error">error</span>
     {/if}
+    {#if request.llm?.error}
+      <!-- A 200 whose reply failed part-way, such as an error event in a stream. -->
+      <span class="status-error" title={request.llm.error.message}>error</span>
+    {/if}
     {#if request.latency !== undefined}
       <span class="latency">{formatLatency(request.latency)}</span>
     {/if}

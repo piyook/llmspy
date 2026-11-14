@@ -219,6 +219,25 @@ describe('openai responses parseResponse', () => {
 		});
 		expect(incomplete.stopReason).toBe('max_output_tokens');
 	});
+
+	it('reads the error of a failed response', () => {
+		const failed = openaiResponses.parseResponse({
+			status: 'failed',
+			error: { code: 'server_error', message: 'Something went wrong' },
+			output: [],
+		});
+		expect(failed.stopReason).toBe('failed');
+		expect(failed.error).toEqual({
+			type: 'server_error',
+			message: 'Something went wrong',
+		});
+	});
+
+	it('sets no error when `error` is null', () => {
+		expect(openaiResponses.parseResponse(response)).not.toHaveProperty(
+			'error',
+		);
+	});
 });
 
 describe('openai responses parseStream', () => {
@@ -341,6 +360,53 @@ describe('openai responses parseStream', () => {
 					},
 				],
 			},
+		});
+	});
+
+	it('keeps the reply so far and the error from an error event', () => {
+		const response = openaiResponses.parseStream([
+			{
+				type: 'response.output_item.added',
+				output_index: 0,
+				item: { type: 'message', role: 'assistant', content: [] },
+			},
+			{
+				type: 'response.output_text.delta',
+				output_index: 0,
+				delta: 'Lorem ',
+			},
+			{
+				type: 'error',
+				code: 'server_error',
+				message: 'Something went wrong',
+				param: null,
+			},
+		]);
+		expect(response.output?.parts).toEqual([
+			{ type: 'text', text: 'Lorem ' },
+		]);
+		expect(response.error).toEqual({
+			type: 'server_error',
+			message: 'Something went wrong',
+		});
+	});
+
+	it('reads the error of a response.failed event, else keeps the error event', () => {
+		const failed = (error: object | null) =>
+			openaiResponses.parseStream([
+				{ type: 'error', code: 'early', message: 'From the event' },
+				{
+					type: 'response.failed',
+					response: { status: 'failed', error, output: [] },
+				},
+			]);
+		expect(
+			failed({ code: 'server_error', message: 'From the response' })
+				.error,
+		).toEqual({ type: 'server_error', message: 'From the response' });
+		expect(failed(null).error).toEqual({
+			type: 'early',
+			message: 'From the event',
 		});
 	});
 

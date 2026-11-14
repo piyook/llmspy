@@ -1,3 +1,4 @@
+import { toLlmError } from './error.js';
 import {
 	asArray,
 	asNumber,
@@ -9,6 +10,7 @@ import {
 } from './json.js';
 import type {
 	FormatParser,
+	LlmError,
 	LlmMessage,
 	LlmPart,
 	LlmRequest,
@@ -126,12 +128,14 @@ function parseResponse(body: unknown): LlmResponse {
 /**
  * Rebuilds the content blocks from `content_block_start` and the deltas that
  * follow, then reads them as a normal response. Usage starts from
- * `message_start` and is updated by `message_delta`.
+ * `message_start` and is updated by `message_delta`. An `error` event ends
+ * the reply part-way; what came before it is kept.
  */
 function parseStream(events: unknown[]): LlmResponse {
 	let started = false;
 	let model: string | undefined;
 	let stopReason: string | undefined;
+	let error: LlmError | undefined;
 	const usage: JsonObject = {};
 	const blocks: JsonObject[] = [];
 	const toolInputs: string[] = [];
@@ -178,10 +182,13 @@ function parseStream(events: unknown[]): LlmResponse {
 					asString(asRecord(event.delta).stop_reason) ?? stopReason;
 				Object.assign(usage, numbersOnly(event.usage));
 				break;
+			case 'error':
+				error = toLlmError(event.error) ?? { message: '' };
+				break;
 		}
 	}
 
-	if (!started) return {};
+	if (!started) return error ? { error } : {};
 
 	toolInputs.forEach((json, index) => {
 		const block = blocks[index];
@@ -196,6 +203,7 @@ function parseStream(events: unknown[]): LlmResponse {
 		},
 		stopReason,
 		usage: toUsage(usage),
+		...(error && { error }),
 	};
 }
 
