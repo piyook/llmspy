@@ -129,6 +129,8 @@ export class ProxyServer {
 				// The port really bound, so the UI can show it even when it is
 				// served from elsewhere (Vite in dev).
 				port: (this.server.address() as AddressInfo).port,
+				// So `npm run stop` can check the pid file names this process.
+				pid: process.pid,
 				timestamp: new Date().toISOString(),
 			}),
 		);

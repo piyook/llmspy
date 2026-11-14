@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import * as path from 'node:path';
+import { writePidFile } from './pidfile.js';
 import { ProxyServer } from './proxy.js';
 import { RequestStore } from './store.js';
 import type { ProxyConfig } from './types.js';
@@ -34,6 +35,8 @@ async function start(): Promise<void> {
 			? '127.0.0.1'
 			: config.host;
 		const base = `http://${shownHost}:${port}`;
+		// Written only once the port is ours, so a second start that fails leaves the first one's record.
+		writePidFile(base);
 		const width = Math.max(
 			...[...config.upstreams.keys()].map((n) => n.length),
 		);
