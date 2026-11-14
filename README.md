@@ -2,6 +2,8 @@
 
 A local developer tool that shows LLM API traffic in real time.
 
+![LLMSpy showing a coding agent's call as a conversation: the user's question, the assistant's tool calls and the tool results](docs/screenshots/conversation.png)
+
 ## Why
 
 Apps and agents built on LLMs hide most of what they send. SDKs, frameworks and coding agents add their own system prompts, tool definitions, retries and parameters, and the actual request and response are rarely logged anywhere you can read them. When an agent misbehaves, burns tokens, or gives a strange answer, the first question is "what did it actually send to the model, and what came back?", and that is usually the hardest one to answer.
@@ -16,6 +18,26 @@ Use it to:
 - compare what different tools send for the same task
 
 It is for local development only. It listens on `127.0.0.1`, masks API keys in what it records, and keeps the last 500 requests in memory only.
+
+## What you see
+
+Every call appears in the list on the left as it happens, newest first, with its status, time taken and token counts. Select one to look at it three ways.
+
+**Conversation** (above) reads the call as the model sees it: the system prompt and tools, then each message by role, with tool calls matched to their results, and the reply at the end with its stop reason and token use. Streamed replies are put back together. LLMSpy reads the Anthropic Messages, OpenAI Chat Completions and OpenAI Responses formats.
+
+**Raw** shows the request and response exactly as they went over the wire: method and URL, headers (with API keys masked) and both bodies.
+
+![The Raw tab: request headers with the API key masked, and the request body as JSON](docs/screenshots/raw.png)
+
+**Compare** sets the selected call (green) against another (red): by default the previous call to the same upstream, which in an agent loop is the turn before; "Compare with another call" picks any other. It sums up what changed (model, stop reason, system prompt, tools, messages and tokens) and shows only the messages that are new.
+
+![The Compare tab: the system prompt's one changed line, token counts for both calls, and the two messages the later call added](docs/screenshots/compare.png)
+
+Under the summary, a line diff of the two request bodies shows everything else that changed, such as `max_tokens`, `temperature` or a tool's schema, with unchanged stretches folded away.
+
+![The request body diff in the Compare tab, with the added messages in green and the changed system prompt in red and green](docs/screenshots/compare-body.png)
+
+The traffic in these screenshots is made up, sent to the mock server described under [Testing without an API key](#testing-without-an-api-key).
 
 ## Quick start
 
