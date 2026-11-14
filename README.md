@@ -65,28 +65,75 @@ claude
 
 Each request then appears in the UI at `http://127.0.0.1:8080`.
 
+For coding agents and scripts, [llms.txt](llms.txt) is a compact reference: how to run LLMSpy, point an app at it, and read the captured traffic as JSON.
+
+## Upstreams
+
+An upstream is an API that LLMSpy forwards to, reached through its own path prefix. The real Anthropic and OpenAI APIs are built in (`/anthropic` and `/openai`, see [Quick start](#quick-start)) and need no setup: the app keeps its own API key, which LLMSpy passes on to the provider. The ChatGPT app itself can't be pointed anywhere; `/openai` is for code and tools that call the OpenAI API.
+
+### Adding one
+
+Set `LLMSPY_UPSTREAMS` to a comma-separated list of `name=url` before starting LLMSpy. Each entry adds the prefix `/<name>`, and a name that is already there replaces it. A path in the URL is kept and the rest of the request path is appended to it, so the app's base URL is LLMSpy's address plus the prefix:
+
+```
+LLMSPY_UPSTREAMS=openrouter=https://openrouter.ai/api/v1
+app's base URL:   http://127.0.0.1:8080/openrouter
+app calls:        http://127.0.0.1:8080/openrouter/chat/completions
+LLMSpy sends to:  https://openrouter.ai/api/v1/chat/completions
+```
+
+Names are lowercase letters, digits and dashes; `api`, `assets`, `events` and `ping` are taken by LLMSpy itself. LLMSpy reads the conversation from any upstream that speaks the Anthropic Messages, OpenAI Chat Completions or OpenAI Responses API, whatever its name; calls to other APIs are still captured and shown in Raw.
+
+Examples, with the base URL to give the app:
+
+| `LLMSPY_UPSTREAMS` entry                                         | App's base URL                                                |
+| ---------------------------------------------------------------- | ------------------------------------------------------------- |
+| `openrouter=https://openrouter.ai/api/v1`                        | `http://127.0.0.1:8080/openrouter`                            |
+| `gemini=https://generativelanguage.googleapis.com/v1beta/openai` | `http://127.0.0.1:8080/gemini` (OpenAI SDK)                   |
+| `ollama=http://localhost:11434`                                  | `http://127.0.0.1:8080/ollama/v1` (OpenAI SDK)                |
+| `anthropic=https://llm-gateway.example.com/anthropic`            | `http://127.0.0.1:8080/anthropic` (replaces the built-in one) |
+
+### Running locally
+
+Set the variable in the shell that starts LLMSpy. In PowerShell:
+
+```powershell
+$env:LLMSPY_UPSTREAMS = "openrouter=https://openrouter.ai/api/v1,ollama=http://localhost:11434"
+npm start
+```
+
+In bash:
+
+```bash
+LLMSPY_UPSTREAMS=openrouter=https://openrouter.ai/api/v1,ollama=http://localhost:11434 npm start
+```
+
+### With Docker
+
+Put the variable in a `.env` file next to `compose.yaml`. Compose reads it and passes `LLMSPY_UPSTREAMS`, and nothing else from it, into the container. Then start the container, which recreates it if the value has changed:
+
+```bash
+# .env
+LLMSPY_UPSTREAMS=openrouter=https://openrouter.ai/api/v1,ollama=http://host.docker.internal:11434
+```
+
+```bash
+npm run start:docker
+```
+
+Inside the container `localhost` is the container itself, so an upstream running on your machine, such as Ollama or the [mocks](#testing-without-an-api-key), is `host.docker.internal`. External URLs are the same as when running locally, and apps are still pointed at `http://127.0.0.1:8080/<name>` from your machine.
+
+### Checking them
+
+LLMSpy prints every upstream and its base URL on startup (`docker compose logs` with Docker), lists them under **Base URLs** in the UI's header, and returns them at `GET /api/upstreams`. A name that isn't allowed or a URL that isn't valid stops it at startup with the reason.
+
 ## Configuration
 
 | Variable           | Default     | Meaning                                                       |
 | ------------------ | ----------- | ------------------------------------------------------------- |
 | `PROXY_PORT`       | `8080`      | Port for the proxy and the UI                                 |
 | `LLMSPY_HOST`      | `127.0.0.1` | Interface to listen on; the Docker image sets `0.0.0.0`       |
-| `LLMSPY_UPSTREAMS` |             | Extra or replacement upstreams, as comma-separated `name=url` |
-
-`LLMSPY_UPSTREAMS` adds a prefix per entry, and a name that matches a default replaces it. A path in the URL is kept, and the rest of the request path is appended to it:
-
-```bash
-LLMSPY_UPSTREAMS=ollama=http://localhost:11434,gemini=https://generativelanguage.googleapis.com
-# http://127.0.0.1:8080/ollama/api/chat -> http://localhost:11434/api/chat
-```
-
-Names are lowercase letters, digits and dashes; `api`, `assets`, `events` and `ping` are taken by LLMSpy itself.
-
-With Docker, set `LLMSPY_UPSTREAMS` in the shell or in a `.env` file next to `compose.yaml` before `docker compose up`. Inside the container `localhost` is the container itself, so an upstream running on your machine is `host.docker.internal`:
-
-```bash
-LLMSPY_UPSTREAMS=ollama=http://host.docker.internal:11434 docker compose up -d
-```
+| `LLMSPY_UPSTREAMS` |             | Extra or replacement upstreams, see [Upstreams](#upstreams)   |
 
 ## How it works
 

@@ -1,0 +1,161 @@
+# LLMSpy
+
+> A local reverse proxy that records the LLM API calls an app makes and shows each one in a web UI: the prompt, the system message, the tools, the reply and the token counts. An app is pointed at it by its base URL setting (`ANTHROPIC_BASE_URL`, `OPENAI_BASE_URL`); requests are forwarded unchanged and a copy is kept. This file is the reference for AI agents and scripts and describes the repository it ships in; `README.md` is the human guide.
+
+## What it does and does not do
+
+- One HTTP server, on `http://127.0.0.1:8080` by default, serves three things: `/<upstream>/...` is forwarded to an LLM API, `/ping`, `/events` and `/api/*` serve the captured traffic, and anything else is a file of the built web UI.
+- Forwarding is a byte-for-byte passthrough, chunk by chunk, so streamed replies still stream to the app. LLMSpy never changes a request or a response.
+- It keeps the newest 500 calls, in memory only. They are lost when it stops or restarts, and nothing is written to disk.
+- `authorization` and `x-api-key` headers are masked in what it records (`Bearer ••••abcd`: the scheme and the last 4 characters of a long key). Prompts, replies and every other header are recorded as sent.
+- A call is recorded when its exchange ends: when the response has been sent in full, the upstream failed, or the client hung up. A long streamed reply is not visible until it finishes.
+- It does not intercept traffic (no MITM, no CA certificate). An app that has no base URL setting can not be watched.
+- It is for local development. It is not authenticated and must not be reachable from other machines.
+
+## Run and stop
+
+From the repository root (`npm install` once first, except for Docker):
+
+| How | Start | Stop |
+|---|---|---|
+| Docker (runs in the background, restarts with Docker) | `npm run start:docker` (`docker compose up -d --build`) | `npm run stop:docker` (`docker compose down`) |
+| Built, local | `npm run build`, then `npm start` | `npm run stop`, from any terminal |
+| Development, with reload | `npm run dev` (UI also on `http://localhost:3000`) | Ctrl+C in its terminal |
+
+- Ready when `GET http://127.0.0.1:8080/ping` answers `200`. `npm start` and `npm run dev` stay in the foreground: run them in the background and poll `/ping`.
+- All three use port 8080. Stop one before starting another; a second start on a taken port fails with `EADDRINUSE` and exits `1`.
+- `npm start` writes `~/.llmspy/llmspy.pid` (`{"pid", "url"}`) once it listens. `npm run stop` stops that process only if `/ping` at that URL reports the same pid, so a stale file is removed and nothing else is killed. It exits `0` when LLMSpy is stopped or was not running. It does not stop Docker or `npm run dev`.
+- `npm start` prints the base URL of each upstream on startup. A bad `LLMSPY_UPSTREAMS` prints the reason and exits `1`.
+
+## Point an app at it
+
+Set the app's base URL to LLMSpy plus the upstream's path prefix, then start the app (most read the variable only at startup):
+
+| Prefix | Forwards to | Base URL setting |
+|---|---|---|
+| `/anthropic` | `https://api.anthropic.com` | `ANTHROPIC_BASE_URL=http://127.0.0.1:8080/anthropic` |
+| `/openai` | `https://api.openai.com` | `OPENAI_BASE_URL=http://127.0.0.1:8080/openai/v1` |
+
+- The rest of the path and the query are appended to the upstream's URL: `/anthropic/v1/messages` goes to `https://api.anthropic.com/v1/messages`. The OpenAI SDKs expect `/v1` in their base URL; the Anthropic SDK does not.
+- The app's API key is sent through to the provider as usual. LLMSpy needs no key.
+- An app in another container reaches the proxy at `http://host.docker.internal:8080/<prefix>`, or by service name in the same compose project. Forwarding answers any `Host`; only the traffic endpoints below are limited to loopback.
+
+## Configuration
+
+Environment variables, read once at startup:
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `PROXY_PORT` | `8080` | Port for everything. Not passed into Docker: there it is always `8080` |
+| `LLMSPY_HOST` | `127.0.0.1` | Interface to listen on. The Docker image sets `0.0.0.0` and compose publishes the port on `127.0.0.1` only |
+| `LLMSPY_UPSTREAMS` | empty | Extra or replacement upstreams, as comma-separated `name=url` |
+
+`LLMSPY_UPSTREAMS`:
+
+- Each entry adds the prefix `/<name>`. A name that is already there (`anthropic`, `openai`) is replaced.
+- Names are lowercase letters, digits and dashes, starting with a letter or digit. `api`, `assets`, `events` and `ping` are refused.
+- URLs must be `http` or `https`. A path in the URL is kept and the request path is appended: `gw=https://gateway.example/v1` sends `/gw/messages` to `https://gateway.example/v1/messages`.
+- With Docker, set it in the shell or in `.env` next to `compose.yaml` before `docker compose up`. Inside the container `localhost` is the container: an upstream on the host is `http://host.docker.internal:<port>`.
+
+```bash
+LLMSPY_UPSTREAMS=ollama=http://localhost:11434,llmock=http://127.0.0.1:8001 npm start
+```
+
+## Reading captured traffic
+
+| Route | Returns |
+|---|---|
+| `GET /ping` | `200 {"status":"running","message","port","pid","timestamp"}`; `port` is the port really bound |
+| `GET /api/requests` | `200`, a JSON array of every record, newest first |
+| `GET /api/upstreams` | `200`, a JSON array of `{"name","target"}` in configuration order; any user name or password in `target` is removed |
+| `POST /api/clear` | `200 {"success":true}`: every record is deleted. No body needed |
+| `GET /events` | Server-Sent Events: on connect every stored record, newest first, then each new record as it is captured. Each event is one `data: <record JSON>` line with no `event:` name |
+
+- Paths must match exactly, with no query string and no trailing slash: `/api/requests?limit=1` is answered `404`. There is no paging, filtering or single-record route; filter the array yourself.
+- These routes answer only requests whose `Host` is `localhost`, `127.0.0.1` or `[::1]` (with any port), or the address in `LLMSPY_HOST` when that is not `0.0.0.0`/`::`. A request with an `Origin` header must also come from the same origin as its `Host`. Anything else gets `403` with a plain-text message. curl, scripts and SDKs send no `Origin` and pass when they call `127.0.0.1`; a call from another container (`Host: llmspy` or `host.docker.internal`) gets `403`.
+- `POST /api/clear` does not tell `/events` clients; a UI open elsewhere keeps showing the old records until reloaded.
+- A record can be large (a coding agent's request is often around 1 MB), so `/api/requests` with 500 records can be hundreds of MB.
+
+## Record shape
+
+Each record in `/api/requests` and `/events`:
+
+| Field | Meaning |
+|---|---|
+| `id` | Random UUID |
+| `timestamp` | ISO time the request arrived |
+| `provider` | The upstream name, from the path prefix |
+| `host` | The upstream host it was forwarded to |
+| `method`, `path` | As sent upstream (`path` includes the query) |
+| `headers` | Request headers, keys masked, hop-by-hop headers removed |
+| `body` | Request body, decompressed and decoded as UTF-8 text (JSON is a string: parse it) |
+| `response` | `{"status","headers","body"}`, body decompressed and decoded. Absent when the upstream never answered |
+| `timings` | `{"start","firstByte"?,"end"?}`, epoch ms; `firstByte` is when the response headers arrived |
+| `latency` | `end - start`, ms |
+| `error` | Set when the exchange failed: `Upstream request failed: …` (never reached; the app got `502`), `Upstream response failed: …` (the reply broke off), `Client closed the connection before the response finished` |
+| `llm` | The call read as an LLM API call, below. Absent when the path is not one LLMSpy knows |
+
+A streamed response body is the raw SSE text. A body that can not be decompressed is replaced by `[LLMSpy could not decode this body: …]`.
+
+### `llm`
+
+Present for `POST` requests whose path ends in `/v1/messages` (`format: "anthropic-messages"`), `/chat/completions` (`"openai-chat"`) or `/responses` (`"openai-responses"`), whatever the upstream's name. The same shape for every format:
+
+| Field | Meaning |
+|---|---|
+| `format` | One of the three above |
+| `model` | The model that answered, else the one asked for |
+| `stream` | Whether the reply was streamed |
+| `system` | The system prompt or instructions, as one string |
+| `messages` | The conversation sent, oldest first: `[{"role","parts"}]`, `role` is `user`, `assistant` or `tool` |
+| `tools` | `[{"name","description"?}]`; the schemas are only in `body` |
+| `output` | The reply as one message (`role: "assistant"`), reassembled if streamed |
+| `stopReason` | As the provider sent it (`end_turn`, `tool_use`, `stop`, `length`, …) |
+| `usage` | `{"input"?,"output"?,"cacheRead"?,"cacheWrite"?,"reasoning"?}` as the provider counts them; Anthropic's `input` excludes cached tokens, OpenAI's includes them |
+| `error` | `{"type"?,"message"}`: an error the provider sent inside a `2xx` reply, such as an `error` event part-way through a stream |
+| `parseError` | Set when a body could not be read; the fields that could be read are still there |
+
+A part is one of:
+
+- `{"type":"text","text"}`
+- `{"type":"thinking","text"}`
+- `{"type":"tool_call","id","name","input"}`, where `input` is parsed JSON when possible
+- `{"type":"tool_result","id","content","isError"?}`, matched to its call by `id`
+- `{"type":"image"}`, with the data left out
+- `{"type":"other","raw"}`, a block LLMSpy has no view for, as sent
+
+Only `2xx` responses are parsed. For a `4xx`/`5xx` call, `llm` has the request fields but no `output`, `stopReason` or `usage`: read `response.status` and `response.body`.
+
+## Errors
+
+| What the app gets | Why | In the record |
+|---|---|---|
+| `404 text/plain` `LLMSpy: no upstream for <path>. Known prefixes: …` | The first path segment is not an upstream | Nothing recorded |
+| `502 text/plain` `LLMSpy could not reach <origin>: …` | DNS, connection or TLS failure to the upstream | `error`, no `response` |
+| The connection is cut | The upstream's reply broke off part-way | `error`, `response` with what arrived |
+| The provider's own status and body | Anything the provider answered, `4xx`/`5xx` included | `response` as sent |
+| `403 text/plain` | A traffic endpoint called with another `Host` or `Origin` (above) | Nothing recorded |
+
+## Recipes
+
+The last call's prompt and reply, without `jq`:
+
+```bash
+curl -s http://127.0.0.1:8080/api/requests | node -e "
+  const [r] = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+  console.log(JSON.stringify({ status: r?.response?.status, error: r?.error, llm: r?.llm }, null, 2));"
+```
+
+With `jq`: `curl -s http://127.0.0.1:8080/api/requests | jq '.[0].llm | {model, system, messages, output, usage}'`.
+
+Check what an app sends for one task: `POST /api/clear`, run the app, then read `/api/requests` (newest first, so reverse it for the order the calls were made in).
+
+Wait for a call: poll `GET /api/requests` until its length grows, or read `/events` and wait for a record whose `timestamp` is after the moment you started.
+
+Without an API key: `npm run mock` starts mock LLM APIs (Anthropic Messages on `127.0.0.1:8001`, OpenAI Chat Completions on `127.0.0.1:8002`). Start LLMSpy with `LLMSPY_UPSTREAMS=llmock=http://127.0.0.1:8001,llmock-openai=http://127.0.0.1:8002`, then `node scripts/mock-traffic.mjs` sends one call of each kind (tool call, `max_tokens`, refusal, `429`, stream error, dropped stream). The README lists the prompt markers that pick each reply.
+
+## Do not
+
+- Do not set `LLMSPY_HOST` to `0.0.0.0` outside Docker, or publish the Docker port as anything but `127.0.0.1:8080:8080`: forwarding and the UI would be open to the network.
+- Do not save or commit captured records: they hold whole prompts and replies, and the masked key's last 4 characters.
+- Do not rely on records surviving a restart, or on more than the newest 500.
