@@ -18,6 +18,13 @@ const usage = $derived(request.llm?.usage);
 const hasTokens = $derived(
 	usage?.input !== undefined || usage?.output !== undefined,
 );
+// A reply that failed after its status arrived: an error the provider sent
+// inside it, or the stream breaking off (the capture's own error).
+const replyError = $derived(
+	request.response
+		? (request.llm?.error?.message ?? request.error)
+		: undefined,
+);
 </script>
 
 <button
@@ -32,11 +39,10 @@ const hasTokens = $derived(
     {#if request.response}
       <span class={statusClass(request.response.status)}>{request.response.status}</span>
     {:else if request.error}
-      <span class="status-error">error</span>
+      <span class="status-error" title={request.error}>error</span>
     {/if}
-    {#if request.llm?.error}
-      <!-- A 200 whose reply failed part-way, such as an error event in a stream. -->
-      <span class="status-error" title={request.llm.error.message}>error</span>
+    {#if replyError !== undefined}
+      <span class="status-error" title={replyError}>error</span>
     {/if}
     {#if request.latency !== undefined}
       <span class="latency">{formatLatency(request.latency)}</span>

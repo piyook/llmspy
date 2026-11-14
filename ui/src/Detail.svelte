@@ -35,7 +35,7 @@ const tab = $derived<Tab>(request.llm ? chosen : 'raw');
 {#if tab === 'conversation' && request.llm}
   <!-- Keyed, so the fold state starts fresh for each request. -->
   {#key request.id}
-    <ConversationView llm={request.llm} />
+    <ConversationView llm={request.llm} captureError={request.error} />
   {/key}
 {:else}
   <RawView {request} />
