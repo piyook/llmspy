@@ -3,10 +3,18 @@ import { toolNames, usageSummary } from './lib/conversation.js';
 import type { LlmExchange } from './lib/types.js';
 import Message from './Message.svelte';
 
-let { llm }: { llm: LlmExchange } = $props();
+// captureError: the capture's own error, such as the stream breaking off.
+let { llm, captureError }: { llm: LlmExchange; captureError?: string } =
+	$props();
 
 const names = $derived(toolNames(llm));
 const usage = $derived(usageSummary(llm.usage));
+// Shown under an error notice: whether any of the reply came before the error.
+const partialHint = $derived(
+	llm.output?.parts.length
+		? 'The reply above is what arrived before it.'
+		: 'No reply arrived before it.',
+);
 
 // Whether each message is unfolded, by index, plus `reply`. Missing means unfolded.
 let open = $state<Record<string, boolean>>({});
@@ -79,11 +87,15 @@ function setAll(value: boolean) {
   <p class="notice error-notice" role="alert">
     <strong>The provider reported an error{llm.error.type ? `: ${llm.error.type}` : ''}</strong>
     {#if llm.error.message}<span>{llm.error.message}</span>{/if}
-    <span class="error-hint">
-      {llm.output?.parts.length
-        ? 'The reply above is what arrived before it.'
-        : 'No reply arrived before it.'}
-    </span>
+    <span class="error-hint">{partialHint}</span>
+  </p>
+{/if}
+
+{#if captureError}
+  <p class="notice error-notice" role="alert">
+    <strong>The reply broke off</strong>
+    <span>{captureError}</span>
+    <span class="error-hint">{partialHint}</span>
   </p>
 {/if}
 
