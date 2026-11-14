@@ -290,6 +290,36 @@ describe('openai chat parseStream', () => {
 		]);
 	});
 
+	it('keeps the reply so far and the error from an error chunk', () => {
+		const response = openaiChat.parseStream([
+			chunk({ role: 'assistant', content: '' }),
+			chunk({ content: 'Lorem ' }),
+			{
+				error: {
+					message: 'The server had an error',
+					type: 'server_error',
+					param: null,
+					code: null,
+				},
+			},
+		]);
+		expect(response.output?.parts).toEqual([
+			{ type: 'text', text: 'Lorem ' },
+		]);
+		expect(response.stopReason).toBeUndefined();
+		expect(response.error).toEqual({
+			type: 'server_error',
+			message: 'The server had an error',
+		});
+	});
+
+	it('sets no error on a stream that finished', () => {
+		const response = openaiChat.parseStream([
+			chunk({ content: 'Hi' }, 'stop'),
+		]);
+		expect(response).not.toHaveProperty('error');
+	});
+
 	it('returns nothing for an empty stream', () => {
 		expect(openaiChat.parseStream([])).toEqual({});
 	});

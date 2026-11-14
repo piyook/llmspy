@@ -135,6 +135,35 @@ describe('parseExchange', () => {
 		expect(exchange?.stopReason).toBe('end_turn');
 	});
 
+	it('reads an error event that cut a stream short', () => {
+		const exchange = parseExchange(
+			capture({
+				response: {
+					status: 200,
+					headers: { 'content-type': 'text/event-stream' },
+					body: sse([
+						{
+							type: 'message_start',
+							message: { model: 'claude-test', usage: {} },
+						},
+						{
+							type: 'error',
+							error: {
+								type: 'api_error',
+								message: 'Internal error',
+							},
+						},
+					]),
+				},
+			}),
+		);
+		expect(exchange?.error).toEqual({
+			type: 'api_error',
+			message: 'Internal error',
+		});
+		expect(exchange?.parseError).toBeUndefined();
+	});
+
 	it('leaves an error response to the raw view', () => {
 		const exchange = parseExchange(
 			capture({
