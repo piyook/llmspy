@@ -73,6 +73,24 @@ jobs:
             - run: npm ci
             - run: npm audit --omit=dev
 
+    fallow:
+        if: github.event_name == 'pull_request'
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v7
+              with:
+                  fetch-depth: 0
+            - uses: actions/setup-node@v7
+              with:
+                  node-version-file: .nvmrc
+                  cache: npm
+            - run: npm ci
+            # The tests go first, as in the pre-push hook: fallow scores
+            # complexity from the coverage they write, and without it guesses
+            # high and fails functions the hook passed.
+            - run: npm run test:coverage
+            - run: npx fallow audit --base origin/${{ github.base_ref }} --coverage coverage/coverage-final.json
+
     branch_name:
         if: github.event_name == 'pull_request'
         runs-on: ubuntu-latest

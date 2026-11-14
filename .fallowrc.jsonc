@@ -1,0 +1,14 @@
+{
+	"$schema": "./node_modules/fallow/schema.json",
+	// Run by hand or read by tools, so nothing imports them:
+	// `node scripts/mock-traffic.mjs`, and the Svelte config that the Vite
+	// plugin and svelte-check load.
+	"supportEntry": ["scripts/mock-traffic.mjs", "ui/svelte.config.js"],
+	"duplicates": {
+		// The dark colour tokens in ui/src/app.css are written twice on
+		// purpose: once under prefers-color-scheme and once under
+		// [data-theme=dark]. CSS can not share one block between the two.
+		// Either copy changing shows them again.
+		"ignoredClones": ["dup:6a926d5f:2"]
+	}
+}

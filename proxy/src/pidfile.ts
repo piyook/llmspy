@@ -3,7 +3,7 @@ import { homedir } from 'node:os';
 import * as path from 'node:path';
 
 /** Where a running LLMSpy says who it is, for `npm run stop` (scripts/stop.mjs reads the same path). */
-export const PID_FILE = path.join(homedir(), '.llmspy', 'llmspy.pid');
+const PID_FILE = path.join(homedir(), '.llmspy', 'llmspy.pid');
 
 /**
  * Records this process and the URL it answers on, and removes the record when
