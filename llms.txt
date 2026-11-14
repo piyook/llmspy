@@ -8,7 +8,7 @@
 - Forwarding is a byte-for-byte passthrough, chunk by chunk, so streamed replies still stream to the app. LLMSpy never changes a request or a response.
 - It keeps the newest 500 calls, in memory only. They are lost when it stops or restarts, and nothing is written to disk.
 - `authorization` and `x-api-key` headers are masked in what it records (`Bearer ••••abcd`: the scheme and the last 4 characters of a long key). Prompts, replies and every other header are recorded as sent.
-- A call is recorded when its exchange ends: when the response has been sent in full, the upstream failed, or the client hung up. A long streamed reply is not visible until it finishes.
+- A call is recorded as soon as its request body has arrived, updated when the response headers arrive, and completed when the exchange ends: when the response has been sent in full, the upstream failed, or the client hung up. Until then `timings.end` is absent and the reply body is empty; the reply is only read once the exchange ends.
 - It does not intercept traffic (no MITM, no CA certificate). An app that has no base URL setting can not be watched.
 - It is for local development. It is not authenticated and must not be reachable from other machines.
 
@@ -69,7 +69,7 @@ LLMSPY_UPSTREAMS=ollama=http://localhost:11434,llmock=http://127.0.0.1:8001 npm 
 | `GET /api/requests` | `200`, a JSON array of every record, newest first |
 | `GET /api/upstreams` | `200`, a JSON array of `{"name","target"}` in configuration order; any user name or password in `target` is removed |
 | `POST /api/clear` | `200 {"success":true}`: every record is deleted. No body needed |
-| `GET /events` | Server-Sent Events: on connect every stored record, newest first, then each new record as it is captured. Each event is one `data: <record JSON>` line with no `event:` name |
+| `GET /events` | Server-Sent Events: on connect every stored record, newest first, then each record each time it is captured or updated. Each event is one `data: <record JSON>` line with no `event:` name. A call arrives up to three times with the same `id`: replace by `id`, and treat it as finished once `timings.end` is set |
 
 - A query string is ignored: `/api/requests?limit=1` returns every record. Otherwise paths must match exactly; `/api/requests/` (trailing slash) is answered `404`. There is no paging, filtering or single-record route; filter the array yourself.
 - These routes answer only requests whose `Host` is `localhost`, `127.0.0.1` or `[::1]` (with any port), or the address in `LLMSPY_HOST` when that is not `0.0.0.0`/`::`. A request with an `Origin` header must also come from the same origin as its `Host`. Anything else gets `403` with a plain-text message. curl, scripts and SDKs send no `Origin` and pass when they call `127.0.0.1`; a call from another container (`Host: llmspy` or `host.docker.internal`) gets `403`.
@@ -89,9 +89,9 @@ Each record in `/api/requests` and `/events`:
 | `method`, `path` | As sent upstream (`path` includes the query) |
 | `headers` | Request headers, keys masked, hop-by-hop headers removed |
 | `body` | Request body, decompressed and decoded as UTF-8 text (JSON is a string: parse it) |
-| `response` | `{"status","headers","body"}`, body decompressed and decoded. Absent when the upstream never answered |
-| `timings` | `{"start","firstByte"?,"end"?}`, epoch ms; `firstByte` is when the response headers arrived |
-| `latency` | `end - start`, ms |
+| `response` | `{"status","headers","body"}`, body decompressed and decoded. Absent until the response headers arrive, and when the upstream never answered; `body` is `""` until the call ends |
+| `timings` | `{"start","firstByte"?,"end"?}`, epoch ms; `firstByte` is when the response headers arrived; no `end` while the call is still running |
+| `latency` | `end - start`, ms; absent while the call is still running |
 | `error` | Set when the exchange failed: `Upstream request failed: …` (never reached; the app got `502`), `Upstream response failed: …` (the reply broke off), `Client closed the connection before the response finished` |
 | `llm` | The call read as an LLM API call, below. Absent when the path is not one LLMSpy knows |
 
@@ -99,7 +99,7 @@ A streamed response body is the raw SSE text. A body that can not be decompresse
 
 ### `llm`
 
-Present for `POST` requests whose path ends in `/v1/messages` (`format: "anthropic-messages"`), `/chat/completions` (`"openai-chat"`) or `/responses` (`"openai-responses"`), whatever the upstream's name. The same shape for every format:
+Present for `POST` requests whose path ends in `/v1/messages` (`format: "anthropic-messages"`), `/chat/completions` (`"openai-chat"`) or `/responses` (`"openai-responses"`), whatever the upstream's name. While the call is running it holds only what the request says (model, system, tools, messages); the reply fields are added when it ends. The same shape for every format:
 
 | Field | Meaning |
 |---|---|
@@ -150,7 +150,7 @@ With `jq`: `curl -s http://127.0.0.1:8080/api/requests | jq '.[0].llm | {model, 
 
 Check what an app sends for one task: `POST /api/clear`, run the app, then read `/api/requests` (newest first, so reverse it for the order the calls were made in).
 
-Wait for a call: poll `GET /api/requests` until its length grows, or read `/events` and wait for a record whose `timestamp` is after the moment you started.
+Wait for a call: poll `GET /api/requests` until a record whose `timestamp` is after the moment you started has `timings.end`, or read `/events` and wait for such a record.
 
 Without an API key: `npm run mock` starts mock LLM APIs (Anthropic Messages on `127.0.0.1:8001`, OpenAI Chat Completions on `127.0.0.1:8002`). Start LLMSpy with `LLMSPY_UPSTREAMS=llmock=http://127.0.0.1:8001,llmock-openai=http://127.0.0.1:8002`, then `node scripts/mock-traffic.mjs` sends one call of each kind (tool call, `max_tokens`, refusal, `429`, stream error, dropped stream). The README lists the prompt markers that pick each reply.
 
