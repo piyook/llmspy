@@ -48,7 +48,7 @@ function shorten(text: string): string {
 		: line;
 }
 
-const USAGE_LABELS: [keyof LlmUsage, string][] = [
+export const USAGE_LABELS: [keyof LlmUsage, string][] = [
 	['input', 'in'],
 	['output', 'out'],
 	['cacheRead', 'cache read'],

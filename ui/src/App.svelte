@@ -2,8 +2,9 @@
 import { onMount } from 'svelte';
 import { SvelteMap } from 'svelte/reactivity';
 import Detail from './Detail.svelte';
+import { previousCall } from './lib/compare.js';
 import { matchesSearch, newestFirst } from './lib/requests.js';
-import type { CapturedRequest } from './lib/types.js';
+import type { CapturedRequest, Tab } from './lib/types.js';
 import RequestRow from './RequestRow.svelte';
 import Toolbar from './Toolbar.svelte';
 
@@ -32,6 +33,33 @@ async function loadAddress() {
 
 // Looked up by id, so the selection stays put as new requests arrive.
 const selected = $derived(selectedId ? requests.get(selectedId) : undefined);
+
+let tab = $state<Tab>('conversation');
+// The call the Compare tab compares the selected one with: the one picked
+// in the list, or else the previous call to the same upstream.
+let pickedId = $state<string>();
+// Whether the next click in the list picks that call instead of selecting.
+let picking = $state(false);
+const other = $derived.by(() => {
+	if (!selected) return undefined;
+	const picked = pickedId ? requests.get(pickedId) : undefined;
+	return picked ?? previousCall(requests.values(), selected);
+});
+const comparing = $derived(selected !== undefined && tab === 'compare');
+
+function onrowclick(id: string) {
+	if (picking) {
+		picking = false;
+		if (id !== selectedId) pickedId = id;
+		return;
+	}
+	selectedId = id;
+	pickedId = undefined;
+}
+
+function onkeydown(event: KeyboardEvent) {
+	if (event.key === 'Escape') picking = false;
+}
 
 const visible = $derived(
 	[...requests.values()]
@@ -82,15 +110,25 @@ async function clearRequests() {
 }
 </script>
 
+<svelte:window {onkeydown} />
+
 <Toolbar bind:search {connected} {address} onclear={clearRequests} />
 
 <div class="panes">
-  <section class="list" aria-label="Captured requests">
+  <section class="list" class:picking aria-label="Captured requests">
+    {#if picking}
+      <p class="pick-hint" role="status">
+        Click the call to compare with.
+        <button type="button" class="small-btn" onclick={() => (picking = false)}>Cancel</button>
+      </p>
+    {/if}
     {#each visible as request (request.id)}
       <RequestRow
         {request}
         selected={request.id === selectedId}
-        onselect={() => (selectedId = request.id)}
+        {comparing}
+        compared={comparing && request.id === other?.id}
+        onselect={() => onrowclick(request.id)}
       />
     {:else}
       <div class="no-requests">
@@ -103,7 +141,13 @@ async function clearRequests() {
 
   <section class="detail" aria-label="Selected request">
     {#if selected}
-      <Detail request={selected} />
+      <Detail
+        request={selected}
+        {other}
+        {picking}
+        onpick={() => (picking = !picking)}
+        bind:chosen={tab}
+      />
     {:else}
       <div class="no-requests">Select a request to see it here.</div>
     {/if}

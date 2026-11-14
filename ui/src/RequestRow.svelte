@@ -7,12 +7,21 @@ import {
 } from './lib/format.js';
 import type { CapturedRequest } from './lib/types.js';
 
+// comparing: whether the Compare tab is open. compared: the call it
+// compares the selected one with.
 let {
 	request,
 	selected,
+	comparing = false,
+	compared = false,
 	onselect,
-}: { request: CapturedRequest; selected: boolean; onselect: () => void } =
-	$props();
+}: {
+	request: CapturedRequest;
+	selected: boolean;
+	comparing?: boolean;
+	compared?: boolean;
+	onselect: () => void;
+} = $props();
 
 const usage = $derived(request.llm?.usage);
 const hasTokens = $derived(
@@ -31,9 +40,12 @@ const replyError = $derived(
   type="button"
   class="row"
   class:selected
+  class:current={selected && comparing}
+  class:compared
   aria-pressed={selected}
   onclick={onselect}
 >
+  {#if compared}<span class="visually-hidden">Compared with the selected call.</span>{/if}
   <span class="row-line">
     <span class="row-time">{formatTime(request.timestamp)}</span>
     {#if request.response}
