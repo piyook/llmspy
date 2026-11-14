@@ -3,7 +3,68 @@
 	line-height: 1.5;
 	font-weight: 400;
 
-	/* Colours: every rule below uses these, so a theme only has to set them. */
+	/* Colours: every rule below uses these, so a theme only has to set them. Light here, dark below. */
+	--bg: #fff;
+	--surface: #f6f6f8;
+	--surface-sunken: #eeeef2;
+	--surface-selected: #e6e7ff;
+	--border: #d0d0d8;
+	--shadow: rgba(0, 0, 0, 0.15);
+	--text: #213547;
+	--text-strong: #000;
+	--text-muted: #555;
+	--text-faint: #666;
+	--text-dim: #888;
+	--accent: #535bf2;
+	--success: #2e7d32;
+	--warning: #b26a00;
+	--danger: #d32f2f;
+	--danger-button: #e53935;
+	--danger-button-hover: #c62828;
+	--on-danger: white;
+
+	color-scheme: light;
+	color: var(--text);
+	background-color: var(--bg);
+
+	font-synthesis: none;
+	text-rendering: optimizeLegibility;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	-webkit-text-size-adjust: 100%;
+}
+
+/*
+ * Dark: when the system asks for it and Light wasn't chosen in Settings, or when Dark was chosen.
+ * Settings sets data-theme on <html>; none means follow the system. CSS can't share one block
+ * between a media query and a selector, so the two blocks below must stay the same.
+ */
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) {
+		--bg: #242424;
+		--surface: #2a2a2a;
+		--surface-sunken: #1a1a1a;
+		--surface-selected: #30304a;
+		--border: #444;
+		--shadow: rgba(0, 0, 0, 0.5);
+		--text: rgba(255, 255, 255, 0.87);
+		--text-strong: #fff;
+		--text-muted: #aaa;
+		--text-faint: #888;
+		--text-dim: #666;
+		--accent: #646cff;
+		--success: #4caf50;
+		--warning: #ff9800;
+		--danger: #f44336;
+		--danger-button: #ff4444;
+		--danger-button-hover: #ff6666;
+		--on-danger: white;
+
+		color-scheme: dark;
+	}
+}
+
+:root[data-theme="dark"] {
 	--bg: #242424;
 	--surface: #2a2a2a;
 	--surface-sunken: #1a1a1a;
@@ -23,15 +84,7 @@
 	--danger-button-hover: #ff6666;
 	--on-danger: white;
 
-	color-scheme: light dark;
-	color: var(--text);
-	background-color: var(--bg);
-
-	font-synthesis: none;
-	text-rendering: optimizeLegibility;
-	-webkit-font-smoothing: antialiased;
-	-moz-osx-font-smoothing: grayscale;
-	-webkit-text-size-adjust: 100%;
+	color-scheme: dark;
 }
 
 * {
@@ -169,7 +222,54 @@ body {
 	background: var(--surface-selected);
 }
 
-/* Base URLs popover, under its header button. */
+/* A header button that is only an icon, such as the settings cog. */
+.icon-btn {
+	display: inline-flex;
+	padding: 0.25rem;
+	border: none;
+	border-radius: 4px;
+	background: transparent;
+	color: var(--accent);
+	cursor: pointer;
+}
+
+.icon-btn:hover,
+.icon-btn[aria-expanded="true"] {
+	background: var(--surface-selected);
+}
+
+/* A setting in the settings popover: a label above a row of choices. */
+.setting {
+	margin: 0;
+	padding: 0;
+	border: none;
+}
+
+.setting legend {
+	margin-bottom: 0.35rem;
+	padding: 0;
+	font-size: 0.85rem;
+	color: var(--text-muted);
+}
+
+.setting-options {
+	display: flex;
+	gap: 1rem;
+}
+
+.setting-options label {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35rem;
+	cursor: pointer;
+}
+
+.setting-options input {
+	margin: 0;
+	accent-color: var(--accent);
+}
+
+/* Header popovers (Base URLs, Settings), under their buttons. */
 .popover-wrapper {
 	position: relative;
 }

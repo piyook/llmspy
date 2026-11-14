@@ -1,4 +1,5 @@
 <script lang="ts">
+import SettingsPopover from './SettingsPopover.svelte';
 import StatusIcon from './StatusIcon.svelte';
 import UpstreamPopover from './UpstreamPopover.svelte';
 
@@ -30,5 +31,6 @@ let {
       bind:value={search}
     />
     <button type="button" class="clear-btn" onclick={onclear}>Clear All</button>
+    <SettingsPopover />
   </div>
 </div>
