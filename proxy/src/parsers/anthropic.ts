@@ -125,6 +125,66 @@ function parseResponse(body: unknown): LlmResponse {
 	};
 }
 
+/** What a stream has said so far. */
+interface StreamState {
+	started: boolean;
+	model?: string;
+	stopReason?: string;
+	error?: LlmError;
+	usage: JsonObject;
+	blocks: JsonObject[];
+	/** The `input_json_delta` pieces of each tool use block, joined. */
+	toolInputs: string[];
+}
+
+/** Adds a delta to its block: text and thinking to the block, tool input JSON to the side. */
+function addDelta(state: StreamState, event: JsonObject): void {
+	const index = asNumber(event.index);
+	if (index === undefined || !state.blocks[index]) return;
+	const block = state.blocks[index];
+	const delta = asRecord(event.delta);
+	const piece = (field: string) => asString(delta[field]) ?? '';
+	switch (delta.type) {
+		case 'text_delta':
+			block.text = (asString(block.text) ?? '') + piece('text');
+			break;
+		case 'thinking_delta':
+			block.thinking =
+				(asString(block.thinking) ?? '') + piece('thinking');
+			break;
+		case 'input_json_delta':
+			state.toolInputs[index] =
+				(state.toolInputs[index] ?? '') + piece('partial_json');
+			break;
+	}
+}
+
+/** Stream events, and what each one changes. Other events are ignored. */
+const EVENTS: Record<string, (state: StreamState, event: JsonObject) => void> =
+	{
+		message_start: (state, event) => {
+			state.started = true;
+			const message = asRecord(event.message);
+			state.model = asString(message.model);
+			Object.assign(state.usage, numbersOnly(message.usage));
+		},
+		content_block_start: (state, event) => {
+			const index = asNumber(event.index);
+			if (index !== undefined) {
+				state.blocks[index] = { ...asRecord(event.content_block) };
+			}
+		},
+		content_block_delta: addDelta,
+		message_delta: (state, event) => {
+			state.stopReason =
+				asString(asRecord(event.delta).stop_reason) ?? state.stopReason;
+			Object.assign(state.usage, numbersOnly(event.usage));
+		},
+		error: (state, event) => {
+			state.error = toLlmError(event.error) ?? { message: '' };
+		},
+	};
+
 /**
  * Rebuilds the content blocks from `content_block_start` and the deltas that
  * follow, then reads them as a normal response. Usage starts from
@@ -132,65 +192,22 @@ function parseResponse(body: unknown): LlmResponse {
  * the reply part-way; what came before it is kept.
  */
 function parseStream(events: unknown[]): LlmResponse {
-	let started = false;
-	let model: string | undefined;
-	let stopReason: string | undefined;
-	let error: LlmError | undefined;
-	const usage: JsonObject = {};
-	const blocks: JsonObject[] = [];
-	const toolInputs: string[] = [];
-
+	const state: StreamState = {
+		started: false,
+		usage: {},
+		blocks: [],
+		toolInputs: [],
+	};
 	for (const raw of events) {
 		const event = asRecord(raw);
-		switch (event.type) {
-			case 'message_start': {
-				started = true;
-				const message = asRecord(event.message);
-				model = asString(message.model);
-				Object.assign(usage, numbersOnly(message.usage));
-				break;
-			}
-			case 'content_block_start': {
-				const index = asNumber(event.index);
-				if (index !== undefined) {
-					blocks[index] = { ...asRecord(event.content_block) };
-				}
-				break;
-			}
-			case 'content_block_delta': {
-				const index = asNumber(event.index);
-				const block = index === undefined ? undefined : blocks[index];
-				if (index === undefined || !block) break;
-				const delta = asRecord(event.delta);
-				if (delta.type === 'text_delta') {
-					block.text =
-						(asString(block.text) ?? '') +
-						(asString(delta.text) ?? '');
-				} else if (delta.type === 'thinking_delta') {
-					block.thinking =
-						(asString(block.thinking) ?? '') +
-						(asString(delta.thinking) ?? '');
-				} else if (delta.type === 'input_json_delta') {
-					toolInputs[index] =
-						(toolInputs[index] ?? '') +
-						(asString(delta.partial_json) ?? '');
-				}
-				break;
-			}
-			case 'message_delta':
-				stopReason =
-					asString(asRecord(event.delta).stop_reason) ?? stopReason;
-				Object.assign(usage, numbersOnly(event.usage));
-				break;
-			case 'error':
-				error = toLlmError(event.error) ?? { message: '' };
-				break;
-		}
+		const type = asString(event.type) ?? '';
+		if (Object.hasOwn(EVENTS, type)) EVENTS[type]?.(state, event);
 	}
 
+	const { started, model, stopReason, error, usage, blocks } = state;
 	if (!started) return error ? { error } : {};
 
-	toolInputs.forEach((json, index) => {
+	state.toolInputs.forEach((json, index) => {
 		const block = blocks[index];
 		if (block && json !== '') block.input = parseJsonOrKeep(json);
 	});
