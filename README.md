@@ -65,6 +65,8 @@ claude
 
 Each request then appears in the UI at `http://127.0.0.1:8080`.
 
+For coding agents and scripts, [llms.txt](llms.txt) is a compact reference: how to run LLMSpy, point an app at it, and read the captured traffic as JSON.
+
 ## Configuration
 
 | Variable           | Default     | Meaning                                                       |
