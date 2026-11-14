@@ -8,6 +8,7 @@ import {
 	type JsonObject,
 	parseJsonOrKeep,
 } from './json.js';
+import { partsText, toRequest } from './openai-common.js';
 import type {
 	FormatParser,
 	LlmError,
@@ -45,9 +46,7 @@ function contentParts(content: unknown): LlmPart[] {
 
 /** Content as text; non-text parts become `[type]`. */
 function contentText(content: unknown): string {
-	return contentParts(content)
-		.map((part) => (part.type === 'text' ? part.text : `[${part.type}]`))
-		.join('\n');
+	return partsText(contentParts(content));
 }
 
 /** A tool output is a string, an array of content parts, or an object. */
@@ -176,13 +175,7 @@ function parseRequest(body: unknown): LlmRequest {
 	}
 
 	const tools = asArray(b.tools).map(toTool);
-	return {
-		model: asString(b.model),
-		stream: b.stream === true,
-		system: system.length > 0 ? system.join('\n\n') : undefined,
-		messages,
-		tools: tools.length > 0 ? tools : undefined,
-	};
+	return toRequest(b, system, messages, tools);
 }
 
 /**
