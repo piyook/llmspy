@@ -68,7 +68,7 @@ LLMSPY_UPSTREAMS=ollama=http://host.docker.internal:11434 docker compose up -d
 
 ## How it works
 
-- `proxy/`: one Node HTTP server. `/<prefix>/...` is forwarded to the upstream with the bytes unchanged, chunk by chunk, while a copy of each body is kept, decompressed (gzip, deflate, br, zstd) and decoded for display. `/events` (Server-Sent Events), `/api/requests` and `/api/clear` serve the UI, and any other path is a file from the built UI (`ui/dist`).
+- `proxy/`: one Node HTTP server. `/<prefix>/...` is forwarded to the upstream with the bytes unchanged, chunk by chunk, while a copy of each body is kept, decompressed (gzip, deflate, br, zstd) and decoded for display. `/events` (Server-Sent Events), `/api/requests`, `/api/upstreams` (each prefix and where it forwards to) and `/api/clear` serve the UI, and any other path is a file from the built UI (`ui/dist`).
 - `ui/`: Svelte and Vite.
 
 ## Development

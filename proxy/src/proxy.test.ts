@@ -189,6 +189,16 @@ describe('ProxyServer', () => {
 		expect(body.pid).toBe(process.pid);
 	});
 
+	it('lists the upstreams at /api/upstreams', async () => {
+		const { base } = await startProxy('http://127.0.0.1:1');
+
+		const res = await request(`${base}/api/upstreams`);
+		expect(res.headers['content-type']).toBe('application/json');
+		expect(JSON.parse((await readAll(res)).toString())).toEqual([
+			{ name: 'fake', target: 'http://127.0.0.1:1/' },
+		]);
+	});
+
 	it('opens /events straight away when there is nothing to replay', async () => {
 		const { base } = await startProxy('http://127.0.0.1:1');
 

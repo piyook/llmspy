@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseUpstreams, resolveRoute } from './upstreams.js';
+import { listUpstreams, parseUpstreams, resolveRoute } from './upstreams.js';
 
 describe('parseUpstreams', () => {
 	it('has anthropic and openai by default', () => {
@@ -29,6 +29,31 @@ describe('parseUpstreams', () => {
 		['non-http url', 'ollama=ftp://localhost'],
 	])('rejects %s', (_label, spec) => {
 		expect(() => parseUpstreams(spec)).toThrow(/LLMSPY_UPSTREAMS/);
+	});
+});
+
+describe('listUpstreams', () => {
+	it('lists each upstream in configuration order', () => {
+		expect(
+			listUpstreams(parseUpstreams('ollama=http://localhost:11434')),
+		).toEqual([
+			{ name: 'anthropic', target: 'https://api.anthropic.com/' },
+			{ name: 'openai', target: 'https://api.openai.com/' },
+			{ name: 'ollama', target: 'http://localhost:11434/' },
+		]);
+	});
+
+	it('leaves out any user name and password in a target', () => {
+		const upstreams = parseUpstreams(
+			'private=https://user:secret@llm.test/v1',
+		);
+
+		expect(listUpstreams(upstreams).at(-1)).toEqual({
+			name: 'private',
+			target: 'https://llm.test/v1',
+		});
+		// The configured URL itself still has them, for forwarding.
+		expect(upstreams.get('private')?.password).toBe('secret');
 	});
 });
 
