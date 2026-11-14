@@ -123,4 +123,4 @@ Anything else gets random lorem ipsum. Both mocks stream when the request sets `
 
 ## License
 
-MIT License - see LICENSE file for details.
+MIT, see [LICENSE](LICENSE).
