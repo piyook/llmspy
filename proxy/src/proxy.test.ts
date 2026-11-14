@@ -208,6 +208,61 @@ describe('ProxyServer', () => {
 		expect(res.headers['content-type']).toBe('text/event-stream');
 	});
 
+	it('ignores a query string on the UI routes', async () => {
+		const upstream = await startUpstream((req, res) => {
+			req.resume();
+			res.end('{}');
+		});
+		const { base, store } = await startProxy(upstream);
+		await readAll(await request(`${base}/fake/v1/messages`));
+		await onlyCaptured(store);
+
+		const requests = await request(`${base}/api/requests?limit=1`);
+		expect(requests.statusCode).toBe(200);
+		expect(JSON.parse((await readAll(requests)).toString())).toHaveLength(
+			1,
+		);
+
+		const ping = await request(`${base}/ping?x=1`);
+		expect(JSON.parse((await readAll(ping)).toString()).status).toBe(
+			'running',
+		);
+
+		const upstreams = await request(`${base}/api/upstreams?x=1`);
+		expect(JSON.parse((await readAll(upstreams)).toString())).toHaveLength(
+			1,
+		);
+
+		const events = await request(`${base}/events?x=1`);
+		events.destroy();
+		expect(events.headers['content-type']).toBe('text/event-stream');
+
+		const clear = await request(`${base}/api/clear?x=1`, {
+			method: 'POST',
+		});
+		clear.resume();
+		expect(clear.statusCode).toBe(200);
+		expect(store.getRequests()).toHaveLength(0);
+	});
+
+	it('does not answer a UI route with a trailing slash', async () => {
+		const { base } = await startProxy('http://127.0.0.1:1');
+
+		const res = await request(`${base}/api/requests/`);
+		res.resume();
+		expect(res.statusCode).toBe(404);
+	});
+
+	it('refuses the UI API with a query string from a rebound host name', async () => {
+		const { base } = await startProxy('http://127.0.0.1:1');
+
+		const res = await request(`${base}/api/requests?limit=1`, {
+			headers: { host: 'evil.example:8080' },
+		});
+		res.resume();
+		expect(res.statusCode).toBe(403);
+	});
+
 	it.each([
 		['GET', '/api/requests'],
 		['POST', '/api/clear'],

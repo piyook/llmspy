@@ -12,8 +12,7 @@ import { listUpstreams, resolveRoute } from './upstreams.js';
  * The routes that serve captured traffic or act on it. Upstream forwarding is
  * not guarded: apps in other containers reach it by other host names.
  */
-function isUiRoute(url: string): boolean {
-	const path = url.split('?')[0];
+function isUiRoute(path: string): boolean {
 	return path === '/ping' || path === '/events' || path.startsWith('/api/');
 }
 
@@ -40,9 +39,12 @@ export class ProxyServer {
 		res: http.ServerResponse,
 	): void {
 		const url = req.url ?? '/';
+		// The UI routes take no parameters, so a query string is ignored. The
+		// full URL still goes to `resolveRoute`, so upstreams get their query.
+		const path = url.split('?')[0];
 
 		if (
-			isUiRoute(url) &&
+			isUiRoute(path) &&
 			!isAllowedUiRequest(req.headers, this.config.host)
 		) {
 			res.writeHead(403, { 'content-type': 'text/plain; charset=utf-8' });
@@ -50,24 +52,24 @@ export class ProxyServer {
 			return;
 		}
 
-		if (url === '/ping') {
+		if (path === '/ping') {
 			this.handlePing(res);
 			return;
 		}
-		if (url === '/events') {
+		if (path === '/events') {
 			this.handleSSE(req, res);
 			return;
 		}
-		if (url === '/api/requests') {
+		if (path === '/api/requests') {
 			this.handleGetRequests(res);
 			return;
 		}
-		if (url === '/api/upstreams') {
+		if (path === '/api/upstreams') {
 			res.writeHead(200, { 'Content-Type': 'application/json' });
 			res.end(JSON.stringify(listUpstreams(this.config.upstreams)));
 			return;
 		}
-		if (url === '/api/clear' && req.method === 'POST') {
+		if (path === '/api/clear' && req.method === 'POST') {
 			this.handleClearRequests(res);
 			return;
 		}
