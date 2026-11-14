@@ -1,7 +1,10 @@
 <script lang="ts">
-import { toolNames, usageSummary } from './lib/conversation.js';
+import ConversationFooter from './ConversationFooter.svelte';
+import ErrorNotice from './ErrorNotice.svelte';
+import { toolNames } from './lib/conversation.js';
 import type { LlmExchange } from './lib/types.js';
 import Message from './Message.svelte';
+import ToolList from './ToolList.svelte';
 
 // captureError: the capture's own error, such as the stream breaking off.
 // running: the call has not ended yet, so there is no reply to show.
@@ -12,7 +15,9 @@ let {
 }: { llm: LlmExchange; captureError?: string; running?: boolean } = $props();
 
 const names = $derived(toolNames(llm));
-const usage = $derived(usageSummary(llm.usage));
+const errorTitle = $derived(
+	`The provider reported an error${llm.error?.type ? `: ${llm.error.type}` : ''}`,
+);
 // Shown under an error notice: whether any of the reply came before the error.
 const partialHint = $derived(
 	llm.output?.parts.length
@@ -50,19 +55,7 @@ function setAll(value: boolean) {
   </details>
 {/if}
 
-{#if llm.tools?.length}
-  <details class="section">
-    <summary>Tools ({llm.tools.length})</summary>
-    <ul class="tool-list">
-      {#each llm.tools as tool}
-        <li>
-          <code>{tool.name}</code>
-          {#if tool.description}<span class="tool-description">{tool.description}</span>{/if}
-        </li>
-      {/each}
-    </ul>
-  </details>
-{/if}
+<ToolList tools={llm.tools ?? []} />
 
 <div class="conv-actions">
   <span>{llm.messages.length} messages</span>
@@ -94,24 +87,15 @@ function setAll(value: boolean) {
 {/if}
 
 {#if llm.error}
-  <p class="notice error-notice" role="alert">
-    <strong>The provider reported an error{llm.error.type ? `: ${llm.error.type}` : ''}</strong>
-    {#if llm.error.message}<span>{llm.error.message}</span>{/if}
-    <span class="error-hint">{partialHint}</span>
-  </p>
+  <ErrorNotice
+    title={errorTitle}
+    detail={llm.error.message}
+    hint={partialHint}
+  />
 {/if}
 
 {#if captureError}
-  <p class="notice error-notice" role="alert">
-    <strong>The reply broke off</strong>
-    <span>{captureError}</span>
-    <span class="error-hint">{partialHint}</span>
-  </p>
+  <ErrorNotice title="The reply broke off" detail={captureError} hint={partialHint} />
 {/if}
 
-{#if llm.stopReason || usage.length}
-  <p class="conv-footer">
-    {#if llm.stopReason}<span>stop: {llm.stopReason}</span>{/if}
-    {#each usage as item}<span>{item}</span>{/each}
-  </p>
-{/if}
+<ConversationFooter {llm} />

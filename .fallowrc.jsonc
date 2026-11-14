@@ -9,6 +9,8 @@
 		// purpose: once under prefers-color-scheme and once under
 		// [data-theme=dark]. CSS can not share one block between the two.
 		// Either copy changing shows them again.
-		"ignoredClones": ["dup:6a926d5f:2"]
+		// contentParts in the two OpenAI parsers opens the same way (string or
+		// array, switch on the part type), but the cases are each API's own.
+		"ignoredClones": ["dup:6a926d5f:2", "dup:9c74f950:2"]
 	}
 }

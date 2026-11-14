@@ -8,6 +8,7 @@ import {
 	type JsonObject,
 	parseJsonOrKeep,
 } from './json.js';
+import { partsText, toRequest } from './openai-common.js';
 import type {
 	FormatParser,
 	LlmError,
@@ -41,9 +42,7 @@ function contentParts(content: unknown): LlmPart[] {
 
 /** Content as text; non-text parts become `[type]`. */
 function contentText(content: unknown): string {
-	return contentParts(content)
-		.map((part) => (part.type === 'text' ? part.text : `[${part.type}]`))
-		.join('\n');
+	return partsText(contentParts(content));
 }
 
 /** A function or custom tool call. Function arguments are a JSON string. */
@@ -153,13 +152,7 @@ function parseRequest(body: unknown): LlmRequest {
 	}
 
 	const tools = [...asArray(b.tools), ...asArray(b.functions)].map(toTool);
-	return {
-		model: asString(b.model),
-		stream: b.stream === true,
-		system: system.length > 0 ? system.join('\n\n') : undefined,
-		messages,
-		tools: tools.length > 0 ? tools : undefined,
-	};
+	return toRequest(b, system, messages, tools);
 }
 
 /** Only the first choice is read; `n` > 1 is rare. */
@@ -177,6 +170,65 @@ function parseResponse(body: unknown): LlmResponse {
 	};
 }
 
+interface CallPieces {
+	id: string;
+	name: string;
+	arguments: string;
+}
+
+/** What the first choice's deltas have said so far. */
+interface ChoiceState {
+	stopReason?: string;
+	content: string;
+	reasoning: string;
+	refusal: string;
+	/** By the call's `index`. */
+	calls: CallPieces[];
+}
+
+/** Tool call pieces join by `index`; the id and name come in the first one. */
+function addCallPieces(calls: CallPieces[], pieces: unknown): void {
+	for (const piece of asArray(pieces)) {
+		const p = asRecord(piece);
+		const fn = asRecord(p.function);
+		const index = asNumber(p.index) ?? 0;
+		calls[index] ??= { id: '', name: '', arguments: '' };
+		const call = calls[index];
+		call.id ||= asString(p.id) ?? '';
+		call.name ||= asString(fn.name) ?? '';
+		call.arguments += asString(fn.arguments) ?? '';
+	}
+}
+
+/** Adds a chunk's delta for the first choice, if it has one. */
+function addChoiceDelta(state: ChoiceState, chunk: JsonObject): void {
+	const choice = asArray(chunk.choices)
+		.map(asRecord)
+		.find((c) => (asNumber(c.index) ?? 0) === 0);
+	if (!choice) return;
+	state.stopReason = asString(choice.finish_reason) ?? state.stopReason;
+
+	const delta = asRecord(choice.delta);
+	state.content += asString(delta.content) ?? '';
+	state.reasoning +=
+		asString(delta.reasoning_content) ?? asString(delta.reasoning) ?? '';
+	state.refusal += asString(delta.refusal) ?? '';
+	addCallPieces(state.calls, delta.tool_calls);
+}
+
+/** The joined deltas as a message `assistantParts` can read. */
+function choiceMessage(state: ChoiceState): JsonObject {
+	return {
+		reasoning_content: state.reasoning,
+		content: state.content,
+		refusal: state.refusal,
+		tool_calls: state.calls.filter(Boolean).map((call) => ({
+			id: call.id,
+			function: { name: call.name, arguments: call.arguments },
+		})),
+	};
+}
+
 /**
  * Joins the deltas of the first choice into one message: text pieces in
  * order, tool calls by their `index` with the id and name from the first
@@ -188,13 +240,14 @@ function parseStream(events: unknown[]): LlmResponse {
 	if (events.length === 0) return {};
 
 	let model: string | undefined;
-	let stopReason: string | undefined;
 	let usage: unknown;
 	let error: LlmError | undefined;
-	let content = '';
-	let reasoning = '';
-	let refusal = '';
-	const calls: { id: string; name: string; arguments: string }[] = [];
+	const state: ChoiceState = {
+		content: '',
+		reasoning: '',
+		refusal: '',
+		calls: [],
+	};
 
 	for (const raw of events) {
 		const chunk = asRecord(raw);
@@ -203,45 +256,16 @@ function parseStream(events: unknown[]): LlmResponse {
 		if (isRecord(chunk.error)) {
 			error = toLlmError(chunk.error) ?? { message: '' };
 		}
-
-		const choice = asArray(chunk.choices)
-			.map(asRecord)
-			.find((c) => (asNumber(c.index) ?? 0) === 0);
-		if (!choice) continue;
-		stopReason = asString(choice.finish_reason) ?? stopReason;
-
-		const delta = asRecord(choice.delta);
-		content += asString(delta.content) ?? '';
-		reasoning +=
-			asString(delta.reasoning_content) ??
-			asString(delta.reasoning) ??
-			'';
-		refusal += asString(delta.refusal) ?? '';
-		for (const piece of asArray(delta.tool_calls)) {
-			const p = asRecord(piece);
-			const fn = asRecord(p.function);
-			const index = asNumber(p.index) ?? 0;
-			calls[index] ??= { id: '', name: '', arguments: '' };
-			const call = calls[index];
-			call.id ||= asString(p.id) ?? '';
-			call.name ||= asString(fn.name) ?? '';
-			call.arguments += asString(fn.arguments) ?? '';
-		}
+		addChoiceDelta(state, chunk);
 	}
 
-	const message: JsonObject = {
-		reasoning_content: reasoning,
-		content,
-		refusal,
-		tool_calls: calls.filter(Boolean).map((call) => ({
-			id: call.id,
-			function: { name: call.name, arguments: call.arguments },
-		})),
-	};
 	return {
 		model,
-		output: { role: 'assistant', parts: assistantParts(message) },
-		stopReason,
+		output: {
+			role: 'assistant',
+			parts: assistantParts(choiceMessage(state)),
+		},
+		stopReason: state.stopReason,
 		usage: toUsage(usage),
 		...(error && { error }),
 	};

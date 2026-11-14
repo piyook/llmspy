@@ -31,6 +31,12 @@ export function previousCall(
 	return previous;
 }
 
+/** Names the calls LLMSpy could not read, for a notice; at least one is unread. */
+export function unreadCalls(thisCall: boolean, otherCall: boolean): string {
+	if (thisCall && otherCall) return 'either call';
+	return thisCall ? 'this call' : 'the other call';
+}
+
 /** A value that differs between the two calls. */
 export interface FieldChange {
 	label: string;
