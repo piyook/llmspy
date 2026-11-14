@@ -2,6 +2,7 @@
 	"name": "llmspy",
 	"version": "1.0.0",
 	"description": "Local developer tool for intercepting and displaying LLM API traffic",
+	"license": "MIT",
 	"private": true,
 	"workspaces": [
 		"proxy",
