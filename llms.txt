@@ -71,7 +71,7 @@ LLMSPY_UPSTREAMS=ollama=http://localhost:11434,llmock=http://127.0.0.1:8001 npm 
 | `POST /api/clear` | `200 {"success":true}`: every record is deleted. No body needed |
 | `GET /events` | Server-Sent Events: on connect every stored record, newest first, then each new record as it is captured. Each event is one `data: <record JSON>` line with no `event:` name |
 
-- Paths must match exactly, with no query string and no trailing slash: `/api/requests?limit=1` is answered `404`. There is no paging, filtering or single-record route; filter the array yourself.
+- A query string is ignored: `/api/requests?limit=1` returns every record. Otherwise paths must match exactly; `/api/requests/` (trailing slash) is answered `404`. There is no paging, filtering or single-record route; filter the array yourself.
 - These routes answer only requests whose `Host` is `localhost`, `127.0.0.1` or `[::1]` (with any port), or the address in `LLMSPY_HOST` when that is not `0.0.0.0`/`::`. A request with an `Origin` header must also come from the same origin as its `Host`. Anything else gets `403` with a plain-text message. curl, scripts and SDKs send no `Origin` and pass when they call `127.0.0.1`; a call from another container (`Host: llmspy` or `host.docker.internal`) gets `403`.
 - `POST /api/clear` does not tell `/events` clients; a UI open elsewhere keeps showing the old records until reloaded.
 - A record can be large (a coding agent's request is often around 1 MB), so `/api/requests` with 500 records can be hundreds of MB.
