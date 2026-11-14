@@ -5,6 +5,13 @@
     <link rel="icon" href="/favicon.ico" />
     <meta name="viewport" content="width=device-width" />
     <title>LLMSpy - LLM API Traffic Inspector</title>
+    <script>
+      // The saved theme, set before the first paint so a light theme doesn't flash dark (see src/lib/theme.ts).
+      try {
+        const theme = localStorage.getItem('llmspy-theme');
+        if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+      } catch {}
+    </script>
   </head>
   <body>
     <div id="app"></div>

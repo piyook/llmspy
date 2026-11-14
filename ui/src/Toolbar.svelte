@@ -1,4 +1,6 @@
 <script lang="ts">
+import HelpPopover from './HelpPopover.svelte';
+import SettingsPopover from './SettingsPopover.svelte';
 import StatusIcon from './StatusIcon.svelte';
 import UpstreamPopover from './UpstreamPopover.svelte';
 
@@ -30,5 +32,7 @@ let {
       bind:value={search}
     />
     <button type="button" class="clear-btn" onclick={onclear}>Clear All</button>
+    <HelpPopover address={connected ? address : undefined} />
+    <SettingsPopover />
   </div>
 </div>

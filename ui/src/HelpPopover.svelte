@@ -1,0 +1,66 @@
+<script lang="ts">
+import Popover from './Popover.svelte';
+
+const README_URL = 'https://github.com/piyook/llmspy#readme';
+// What LLMSpy listens on unless PROXY_PORT says otherwise; shown until the UI reaches the proxy.
+const DEFAULT_ADDRESS = '127.0.0.1:8080';
+
+let { address }: { address?: string } = $props();
+
+const base = $derived(`${location.protocol}//${address ?? DEFAULT_ADDRESS}`);
+</script>
+
+<Popover id="help-popover" label="Help" buttonClass="icon-btn" buttonLabel="Help">
+  {#snippet trigger()}
+    <!-- A question mark in a circle. -->
+    <svg
+      viewBox="0 0 24 24"
+      width="28"
+      height="28"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="9.5" />
+      <path d="M9.25 9.5a2.75 2.75 0 1 1 3.9 2.5c-.7.33-1.15 1-1.15 1.8v.45" />
+      <path d="M12 17.25h.01" stroke-width="2.5" />
+    </svg>
+  {/snippet}
+
+  <div class="help">
+    <h2>Quickstart</h2>
+    <ol>
+      <li>
+        Point your app's base URL at LLMSpy, for example:
+        <code class="help-code">ANTHROPIC_BASE_URL={base}/anthropic</code>
+        <code class="help-code">OPENAI_BASE_URL={base}/openai/v1</code>
+        Base URLs lists every upstream.
+      </li>
+      <li>Run your app as usual. Its calls go through LLMSpy unchanged.</li>
+      <li>
+        Each call appears on the left as it finishes. Pick one to see it as a
+        conversation, or the raw request and response.
+      </li>
+    </ol>
+
+    <h2>Good to know</h2>
+    <ul>
+      <li>
+        Add other upstreams when starting LLMSpy:
+        <code>LLMSPY_UPSTREAMS=name=url,...</code>
+      </li>
+      <li>API keys are masked. Prompts and replies are shown in full.</li>
+      <li>
+        Calls are kept in memory only: the latest 500, gone when LLMSpy
+        restarts. Clear All empties the list.
+      </li>
+    </ul>
+
+    <p class="help-more">
+      More in the <a href={README_URL} target="_blank" rel="noreferrer">README</a>.
+    </p>
+  </div>
+</Popover>

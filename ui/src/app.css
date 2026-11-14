@@ -3,15 +3,88 @@
 	line-height: 1.5;
 	font-weight: 400;
 
-	color-scheme: light dark;
-	color: rgba(255, 255, 255, 0.87);
-	background-color: #242424;
+	/* Colours: every rule below uses these, so a theme only has to set them. Light here, dark below. */
+	--bg: #fff;
+	--surface: #f6f6f8;
+	--surface-sunken: #eeeef2;
+	--surface-selected: #e6e7ff;
+	--border: #d0d0d8;
+	--shadow: rgba(0, 0, 0, 0.15);
+	--text: #213547;
+	--text-strong: #000;
+	--text-muted: #555;
+	--text-faint: #666;
+	--text-dim: #888;
+	--accent: #535bf2;
+	--success: #2e7d32;
+	--warning: #b26a00;
+	--danger: #d32f2f;
+	--danger-button: #e53935;
+	--danger-button-hover: #c62828;
+	--on-danger: white;
+
+	color-scheme: light;
+	color: var(--text);
+	background-color: var(--bg);
 
 	font-synthesis: none;
 	text-rendering: optimizeLegibility;
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
 	-webkit-text-size-adjust: 100%;
+}
+
+/*
+ * Dark: when the system asks for it and Light wasn't chosen in Settings, or when Dark was chosen.
+ * Settings sets data-theme on <html>; none means follow the system. CSS can't share one block
+ * between a media query and a selector, so the two blocks below must stay the same.
+ */
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) {
+		--bg: #242424;
+		--surface: #2a2a2a;
+		--surface-sunken: #1a1a1a;
+		--surface-selected: #30304a;
+		--border: #444;
+		--shadow: rgba(0, 0, 0, 0.5);
+		--text: rgba(255, 255, 255, 0.87);
+		--text-strong: #fff;
+		--text-muted: #aaa;
+		--text-faint: #888;
+		--text-dim: #666;
+		--accent: #646cff;
+		--success: #4caf50;
+		--warning: #ff9800;
+		--danger: #f44336;
+		--danger-button: #ff4444;
+		--danger-button-hover: #ff6666;
+		--on-danger: white;
+
+		color-scheme: dark;
+	}
+}
+
+:root[data-theme="dark"] {
+	--bg: #242424;
+	--surface: #2a2a2a;
+	--surface-sunken: #1a1a1a;
+	--surface-selected: #30304a;
+	--border: #444;
+	--shadow: rgba(0, 0, 0, 0.5);
+	--text: rgba(255, 255, 255, 0.87);
+	--text-strong: #fff;
+	--text-muted: #aaa;
+	--text-faint: #888;
+	--text-dim: #666;
+	--accent: #646cff;
+	--success: #4caf50;
+	--warning: #ff9800;
+	--danger: #f44336;
+	--danger-button: #ff4444;
+	--danger-button-hover: #ff6666;
+	--on-danger: white;
+
+	color-scheme: dark;
 }
 
 * {
@@ -37,13 +110,13 @@ body {
 	justify-content: space-between;
 	align-items: center;
 	padding: 1rem 0;
-	border-bottom: 1px solid #444;
+	border-bottom: 1px solid var(--border);
 }
 
 .header h1 {
 	margin: 0;
 	font-size: 2rem;
-	color: #646cff;
+	color: var(--accent);
 }
 
 .title {
@@ -55,11 +128,11 @@ body {
 /* Proxy connection: an ear in the title colour with moving sound waves, or a slashed red one. */
 .status-icon {
 	display: inline-flex;
-	color: #f44336;
+	color: var(--danger);
 }
 
 .status-icon.connected {
-	color: #646cff;
+	color: var(--accent);
 }
 
 .wave {
@@ -107,22 +180,22 @@ body {
 
 .search {
 	padding: 0.5rem 1rem;
-	border: 1px solid #444;
+	border: 1px solid var(--border);
 	border-radius: 4px;
-	background: #2a2a2a;
-	color: #fff;
+	background: var(--surface);
+	color: var(--text-strong);
 	font-size: 0.9rem;
 }
 
 .search:focus {
 	outline: none;
-	border-color: #646cff;
+	border-color: var(--accent);
 }
 
 .clear-btn {
 	padding: 0.5rem 1rem;
-	background: #ff4444;
-	color: white;
+	background: var(--danger-button);
+	color: var(--on-danger);
 	border: none;
 	border-radius: 4px;
 	cursor: pointer;
@@ -130,15 +203,15 @@ body {
 }
 
 .clear-btn:hover {
-	background: #ff6666;
+	background: var(--danger-button-hover);
 }
 
 .header-btn {
 	padding: 0.5rem 1rem;
-	border: 1px solid #646cff;
+	border: 1px solid var(--accent);
 	border-radius: 4px;
 	background: transparent;
-	color: #fff;
+	color: var(--text-strong);
 	font: inherit;
 	font-size: 0.9rem;
 	cursor: pointer;
@@ -146,10 +219,57 @@ body {
 
 .header-btn:hover,
 .header-btn[aria-expanded="true"] {
-	background: #30304a;
+	background: var(--surface-selected);
 }
 
-/* Base URLs popover, under its header button. */
+/* A header button that is only an icon, such as the settings cog. */
+.icon-btn {
+	display: inline-flex;
+	padding: 0.25rem;
+	border: none;
+	border-radius: 4px;
+	background: transparent;
+	color: var(--accent);
+	cursor: pointer;
+}
+
+.icon-btn:hover,
+.icon-btn[aria-expanded="true"] {
+	background: var(--surface-selected);
+}
+
+/* A setting in the settings popover: a label above a row of choices. */
+.setting {
+	margin: 0;
+	padding: 0;
+	border: none;
+}
+
+.setting legend {
+	margin-bottom: 0.35rem;
+	padding: 0;
+	font-size: 0.85rem;
+	color: var(--text-muted);
+}
+
+.setting-options {
+	display: flex;
+	gap: 1rem;
+}
+
+.setting-options label {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.35rem;
+	cursor: pointer;
+}
+
+.setting-options input {
+	margin: 0;
+	accent-color: var(--accent);
+}
+
+/* Header popovers (Base URLs, Settings), under their buttons. */
 .popover-wrapper {
 	position: relative;
 }
@@ -161,11 +281,63 @@ body {
 	z-index: 10;
 	width: max-content;
 	max-width: min(90vw, 44rem);
+	/* A long popover (Help) scrolls inside the window. The panel itself scrolls, so the keyboard can scroll it once it has focus. */
+	max-height: calc(100vh - 6rem);
+	overflow-y: auto;
 	padding: 0.75rem 1rem;
-	border: 1px solid #646cff;
+	border: 1px solid var(--accent);
 	border-radius: 8px;
-	background: #2a2a2a;
-	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+	background: var(--surface);
+	box-shadow: 0 8px 24px var(--shadow);
+}
+
+/* Help popover. */
+.help {
+	max-width: 34rem;
+	font-size: 0.9rem;
+}
+
+.help h2 {
+	margin: 0 0 0.35rem;
+	font-size: 0.95rem;
+	color: var(--accent);
+}
+
+.help h2 + * {
+	margin-top: 0;
+}
+
+.help ol,
+.help ul {
+	margin-bottom: 1rem;
+	padding-left: 1.25rem;
+}
+
+.help li + li {
+	margin-top: 0.35rem;
+}
+
+.help code {
+	font-family: "Courier New", monospace;
+	font-size: 0.85rem;
+	overflow-wrap: anywhere;
+}
+
+.help-code {
+	display: block;
+	margin: 0.25rem 0;
+	padding: 0.25rem 0.5rem;
+	border-radius: 4px;
+	background: var(--surface-sunken);
+}
+
+.help-more {
+	margin: 0;
+	color: var(--text-muted);
+}
+
+.help a {
+	color: var(--accent);
 }
 
 .popover:focus {
@@ -176,12 +348,12 @@ body {
 .popover-error {
 	margin: 0 0 0.5rem;
 	font-size: 0.85rem;
-	color: #aaa;
+	color: var(--text-muted);
 }
 
 .popover-error {
 	margin: 0;
-	color: #f44336;
+	color: var(--danger);
 }
 
 .upstream-list {
@@ -201,7 +373,7 @@ body {
 
 .upstream-name {
 	font-weight: bold;
-	color: #646cff;
+	color: var(--accent);
 }
 
 .upstream-url {
@@ -214,7 +386,7 @@ body {
 	grid-column: 2 / -1;
 	margin-top: -0.3rem;
 	font-size: 0.75rem;
-	color: #888;
+	color: var(--text-faint);
 	overflow-wrap: anywhere;
 }
 
@@ -246,9 +418,9 @@ body {
 	gap: 0.15rem;
 	width: 100%;
 	padding: 0.6rem 0.75rem;
-	border: 1px solid #444;
+	border: 1px solid var(--border);
 	border-radius: 8px;
-	background: #2a2a2a;
+	background: var(--surface);
 	color: inherit;
 	font: inherit;
 	text-align: left;
@@ -257,16 +429,16 @@ body {
 }
 
 .row:hover {
-	border-color: #646cff;
+	border-color: var(--accent);
 }
 
 .row.selected {
-	border-color: #646cff;
-	background: #30304a;
+	border-color: var(--accent);
+	background: var(--surface-selected);
 }
 
 .row:focus-visible {
-	outline: 2px solid #646cff;
+	outline: 2px solid var(--accent);
 	outline-offset: 2px;
 }
 
@@ -279,12 +451,12 @@ body {
 }
 
 .row-time {
-	color: #888;
+	color: var(--text-faint);
 }
 
 .row-provider {
 	font-weight: bold;
-	color: #646cff;
+	color: var(--accent);
 }
 
 .row-model {
@@ -294,19 +466,19 @@ body {
 }
 
 .row-tokens {
-	color: #aaa;
+	color: var(--text-muted);
 }
 
 .status-success {
-	color: #4caf50;
+	color: var(--success);
 }
 
 .status-error {
-	color: #f44336;
+	color: var(--danger);
 }
 
 .latency {
-	color: #ff9800;
+	color: var(--warning);
 }
 
 /* Raw view of the selected request. */
@@ -324,18 +496,18 @@ body {
 .section > summary {
 	margin-bottom: 0.5rem;
 	font-weight: bold;
-	color: #aaa;
+	color: var(--text-muted);
 	cursor: pointer;
 }
 
 .section > summary:hover {
-	color: #fff;
+	color: var(--text-strong);
 }
 
 .json-viewer {
 	margin: 0;
-	background: #1a1a1a;
-	border: 1px solid #444;
+	background: var(--surface-sunken);
+	border: 1px solid var(--border);
 	border-radius: 4px;
 	padding: 1rem;
 	font-family: "Courier New", monospace;
@@ -349,7 +521,7 @@ body {
 	display: flex;
 	gap: 0.25rem;
 	margin-bottom: 1rem;
-	border-bottom: 1px solid #444;
+	border-bottom: 1px solid var(--border);
 }
 
 .tab {
@@ -357,25 +529,25 @@ body {
 	border: none;
 	border-bottom: 2px solid transparent;
 	background: none;
-	color: #aaa;
+	color: var(--text-muted);
 	font: inherit;
 	cursor: pointer;
 }
 
 .tab:hover {
-	color: #fff;
+	color: var(--text-strong);
 }
 
 .tab.active {
-	border-bottom-color: #646cff;
-	color: #fff;
+	border-bottom-color: var(--accent);
+	color: var(--text-strong);
 }
 
 .small-btn {
 	padding: 0.2rem 0.6rem;
-	border: 1px solid #444;
+	border: 1px solid var(--border);
 	border-radius: 4px;
-	background: #2a2a2a;
+	background: var(--surface);
 	color: inherit;
 	font: inherit;
 	font-size: 0.8rem;
@@ -383,15 +555,15 @@ body {
 }
 
 .small-btn:hover {
-	border-color: #646cff;
+	border-color: var(--accent);
 }
 
 /* Conversation view. */
 .notice {
 	padding: 0.5rem 0.75rem;
-	border: 1px solid #ff9800;
+	border: 1px solid var(--warning);
 	border-radius: 4px;
-	color: #ff9800;
+	color: var(--warning);
 }
 
 .error-notice {
@@ -399,12 +571,12 @@ body {
 	flex-direction: column;
 	gap: 0.25rem;
 	margin: 1rem 0 0;
-	border-color: #f44336;
-	color: #f44336;
+	border-color: var(--danger);
+	color: var(--danger);
 }
 
 .error-hint {
-	color: #aaa;
+	color: var(--text-muted);
 }
 
 .conv-meta,
@@ -416,13 +588,13 @@ body {
 	gap: 0.75rem;
 	margin: 0 0 1rem;
 	font-size: 0.85rem;
-	color: #aaa;
+	color: var(--text-muted);
 }
 
 .conv-footer {
 	margin-top: 1rem;
 	padding-top: 0.5rem;
-	border-top: 1px solid #444;
+	border-top: 1px solid var(--border);
 }
 
 .tool-list {
@@ -433,34 +605,34 @@ body {
 
 .tool-description {
 	margin-left: 0.5rem;
-	color: #aaa;
+	color: var(--text-muted);
 }
 
 /* Before the .message summary rules, which are more specific. */
 .part-thinking > summary {
 	font-style: italic;
-	color: #aaa;
+	color: var(--text-muted);
 	cursor: pointer;
 }
 
 .message {
 	margin-bottom: 0.75rem;
 	padding: 0.5rem 0.75rem;
-	border-left: 3px solid #888;
+	border-left: 3px solid var(--text-faint);
 	border-radius: 4px;
-	background: #2a2a2a;
+	background: var(--surface);
 }
 
 .message.role-user {
-	border-left-color: #646cff;
+	border-left-color: var(--accent);
 }
 
 .message.role-assistant {
-	border-left-color: #4caf50;
+	border-left-color: var(--success);
 }
 
 .message.role-tool {
-	border-left-color: #ff9800;
+	border-left-color: var(--warning);
 }
 
 .message > summary {
@@ -475,18 +647,18 @@ body {
 	font-size: 0.75rem;
 	font-weight: bold;
 	text-transform: uppercase;
-	color: #aaa;
+	color: var(--text-muted);
 }
 
 .preview {
 	margin-left: 0.75rem;
-	color: #888;
+	color: var(--text-faint);
 }
 
 .reply-heading {
 	margin: 1.5rem 0 0.5rem;
 	font-size: 1rem;
-	color: #4caf50;
+	color: var(--success);
 }
 
 .part-text {
@@ -499,29 +671,29 @@ body {
 }
 
 .part-thinking .part-text {
-	color: #aaa;
+	color: var(--text-muted);
 }
 
 .part-tool {
 	padding: 0.5rem;
-	border: 1px solid #444;
+	border: 1px solid var(--border);
 	border-radius: 4px;
 }
 
 .part-tool.part-error {
-	border-color: #f44336;
+	border-color: var(--danger);
 }
 
 .part-label {
 	margin-bottom: 0.25rem;
 	font-size: 0.85rem;
-	color: #aaa;
+	color: var(--text-muted);
 }
 
 .part-id {
 	margin-left: 0.5rem;
 	font-size: 0.75rem;
-	color: #666;
+	color: var(--text-dim);
 }
 
 .part-result {
@@ -531,7 +703,7 @@ body {
 
 .no-requests {
 	text-align: center;
-	color: #888;
+	color: var(--text-faint);
 	font-style: italic;
 	margin: 2rem 0;
 }
