@@ -56,6 +56,24 @@ export function parseUpstreams(spec?: string): Map<string, URL> {
 	return upstreams;
 }
 
+export interface UpstreamInfo {
+	name: string;
+	target: string;
+}
+
+/**
+ * The upstreams as shown to the UI, in configuration order. Any user name
+ * or password in a target URL is left out, so it never reaches a browser.
+ */
+export function listUpstreams(upstreams: Map<string, URL>): UpstreamInfo[] {
+	return [...upstreams].map(([name, url]) => {
+		const target = new URL(url);
+		target.username = '';
+		target.password = '';
+		return { name, target: target.href };
+	});
+}
+
 export interface Route {
 	provider: string;
 	target: URL;

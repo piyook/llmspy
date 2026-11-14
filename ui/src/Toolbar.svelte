@@ -1,5 +1,6 @@
 <script lang="ts">
 import StatusIcon from './StatusIcon.svelte';
+import UpstreamPopover from './UpstreamPopover.svelte';
 
 let {
 	search = $bindable(''),
@@ -20,6 +21,7 @@ let {
     <StatusIcon {connected} {address} />
   </div>
   <div class="controls">
+    <UpstreamPopover address={connected ? address : undefined} />
     <input
       type="search"
       placeholder="Search requests..."

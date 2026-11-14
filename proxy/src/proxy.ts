@@ -5,7 +5,7 @@ import { parseExchange } from './parsers/index.js';
 import { serveStatic } from './static.js';
 import type { RequestStore } from './store.js';
 import type { CapturedRequest, ProxyConfig } from './types.js';
-import { resolveRoute } from './upstreams.js';
+import { listUpstreams, resolveRoute } from './upstreams.js';
 
 /**
  * One HTTP server for both jobs: `/<upstream>/...` is forwarded and captured,
@@ -41,6 +41,11 @@ export class ProxyServer {
 		}
 		if (url === '/api/requests') {
 			this.handleGetRequests(res);
+			return;
+		}
+		if (url === '/api/upstreams') {
+			res.writeHead(200, { 'Content-Type': 'application/json' });
+			res.end(JSON.stringify(listUpstreams(this.config.upstreams)));
 			return;
 		}
 		if (url === '/api/clear' && req.method === 'POST') {

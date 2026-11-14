@@ -133,6 +133,91 @@ body {
 	background: #ff6666;
 }
 
+.header-btn {
+	padding: 0.5rem 1rem;
+	border: 1px solid #646cff;
+	border-radius: 4px;
+	background: transparent;
+	color: #fff;
+	font: inherit;
+	font-size: 0.9rem;
+	cursor: pointer;
+}
+
+.header-btn:hover,
+.header-btn[aria-expanded="true"] {
+	background: #30304a;
+}
+
+/* Base URLs popover, under its header button. */
+.popover-wrapper {
+	position: relative;
+}
+
+.popover {
+	position: absolute;
+	top: calc(100% + 0.5rem);
+	right: 0;
+	z-index: 10;
+	width: max-content;
+	max-width: min(90vw, 44rem);
+	padding: 0.75rem 1rem;
+	border: 1px solid #646cff;
+	border-radius: 8px;
+	background: #2a2a2a;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.popover:focus {
+	outline: none;
+}
+
+.popover-hint,
+.popover-error {
+	margin: 0 0 0.5rem;
+	font-size: 0.85rem;
+	color: #aaa;
+}
+
+.popover-error {
+	margin: 0;
+	color: #f44336;
+}
+
+.upstream-list {
+	display: grid;
+	grid-template-columns: auto auto auto;
+	align-items: center;
+	gap: 0.35rem 0.75rem;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+/* Each row's cells join the list's grid, so the columns line up. */
+.upstream {
+	display: contents;
+}
+
+.upstream-name {
+	font-weight: bold;
+	color: #646cff;
+}
+
+.upstream-url {
+	font-family: "Courier New", monospace;
+	font-size: 0.85rem;
+	overflow-wrap: anywhere;
+}
+
+.upstream-target {
+	grid-column: 2 / -1;
+	margin-top: -0.3rem;
+	font-size: 0.75rem;
+	color: #888;
+	overflow-wrap: anywhere;
+}
+
 .panes {
 	flex: 1;
 	min-height: 0;
