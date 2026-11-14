@@ -30,17 +30,23 @@ export function parseSse(text: string): SseEvent[] {
 			data = [];
 			continue;
 		}
-		if (line.startsWith(':')) continue;
-
-		const colon = line.indexOf(':');
-		const field = colon === -1 ? line : line.slice(0, colon);
-		let value = colon === -1 ? '' : line.slice(colon + 1);
-		if (value.startsWith(' ')) value = value.slice(1);
-
-		if (field === 'event') event = value;
-		else if (field === 'data') data.push(value);
+		const field = splitField(line);
+		if (field?.name === 'event') event = field.value;
+		else if (field?.name === 'data') data.push(field.value);
 	}
 	return events;
+}
+
+/** A field line as name and value; a comment line is undefined. */
+function splitField(line: string): { name: string; value: string } | undefined {
+	if (line.startsWith(':')) return undefined;
+	const colon = line.indexOf(':');
+	if (colon === -1) return { name: line, value: '' };
+	const value = line.slice(colon + 1);
+	return {
+		name: line.slice(0, colon),
+		value: value.startsWith(' ') ? value.slice(1) : value,
+	};
 }
 
 /**
