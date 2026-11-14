@@ -281,11 +281,63 @@ body {
 	z-index: 10;
 	width: max-content;
 	max-width: min(90vw, 44rem);
+	/* A long popover (Help) scrolls inside the window. The panel itself scrolls, so the keyboard can scroll it once it has focus. */
+	max-height: calc(100vh - 6rem);
+	overflow-y: auto;
 	padding: 0.75rem 1rem;
 	border: 1px solid var(--accent);
 	border-radius: 8px;
 	background: var(--surface);
 	box-shadow: 0 8px 24px var(--shadow);
+}
+
+/* Help popover. */
+.help {
+	max-width: 34rem;
+	font-size: 0.9rem;
+}
+
+.help h2 {
+	margin: 0 0 0.35rem;
+	font-size: 0.95rem;
+	color: var(--accent);
+}
+
+.help h2 + * {
+	margin-top: 0;
+}
+
+.help ol,
+.help ul {
+	margin-bottom: 1rem;
+	padding-left: 1.25rem;
+}
+
+.help li + li {
+	margin-top: 0.35rem;
+}
+
+.help code {
+	font-family: "Courier New", monospace;
+	font-size: 0.85rem;
+	overflow-wrap: anywhere;
+}
+
+.help-code {
+	display: block;
+	margin: 0.25rem 0;
+	padding: 0.25rem 0.5rem;
+	border-radius: 4px;
+	background: var(--surface-sunken);
+}
+
+.help-more {
+	margin: 0;
+	color: var(--text-muted);
+}
+
+.help a {
+	color: var(--accent);
 }
 
 .popover:focus {
