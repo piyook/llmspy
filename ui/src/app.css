@@ -292,7 +292,8 @@ body {
 	right: 0;
 	z-index: 10;
 	width: max-content;
-	max-width: min(90vw, 44rem);
+	/* 1rem clear of each side of the window; Popover.svelte moves it inside. */
+	max-width: min(100vw - 2rem, 44rem);
 	/* A long popover (Help) scrolls inside the window. The panel itself scrolls, so the keyboard can scroll it once it has focus. */
 	max-height: calc(100vh - 6rem);
 	overflow-y: auto;
@@ -301,6 +302,13 @@ body {
 	border-radius: 8px;
 	background: var(--surface);
 	box-shadow: 0 8px 24px var(--shadow);
+}
+
+/* Centred under its button. `translate` is left free for the shift into the window. */
+.popover-center {
+	right: auto;
+	left: 50%;
+	transform: translateX(-50%);
 }
 
 /* Help popover. */
