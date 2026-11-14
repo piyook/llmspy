@@ -1,6 +1,13 @@
 # LLMSpy
 
-A local developer tool that shows LLM API traffic in real time.
+A lightweight local developer tool that shows LLM API traffic in real time, with next to no setup.
+
+- **Live capture**: every call to Anthropic, OpenAI or any other upstream you add shows up as it finishes, and streamed replies still stream to the app
+- **Conversation view**: system prompt, tools, messages, tool calls matched to their results, and the reply with its stop reason and token use
+- **Raw view**: headers and bodies exactly as sent and received, with API keys masked
+- **Compare**: diff a call against the one before it, or any other, to see what an agent changed between turns
+- **Reads three formats**: Anthropic Messages, OpenAI Chat Completions and OpenAI Responses, streamed or not
+- **Lightweight**: one command to start, one base URL to set in your app; no certificates, accounts or database
 
 ![LLMSpy showing a coding agent's call as a conversation: the user's question, the assistant's tool calls and the tool results](docs/screenshots/conversation.png)
 
@@ -16,6 +23,12 @@ Use it to:
 - debug failing or odd requests: errors, status codes, latency
 - understand token-heavy calls and why they cost what they do
 - compare what different tools send for the same task
+
+It is deliberately small, and quick to set up:
+
+- one command starts it, and one environment variable in your app points it there
+- no certificates to install, no accounts, no API keys of its own, no database and no config file
+- the proxy has no runtime dependencies beyond Node.js, and the UI is plain static files it serves itself, on the same port
 
 It is for local development only. It listens on `127.0.0.1`, masks API keys in what it records, and keeps the last 500 requests in memory only.
 
@@ -110,7 +123,7 @@ LLMSPY_UPSTREAMS=openrouter=https://openrouter.ai/api/v1,ollama=http://localhost
 
 ### With Docker
 
-Put the variable in a `.env` file next to `compose.yaml`. Compose reads it and passes `LLMSPY_UPSTREAMS`, and nothing else from it, into the container. Then start the container, which recreates it if the value has changed:
+Put the variable in a `.env` file next to `compose.yaml` (copy `.env.example` to start). Compose reads it and passes `LLMSPY_UPSTREAMS`, and nothing else from it, into the container. Then start the container, which recreates it if the value has changed:
 
 ```bash
 # .env
