@@ -10,6 +10,7 @@ import {
 	previousCall,
 	textChanges,
 	toolChanges,
+	unreadCalls,
 	usageChanges,
 } from './compare.js';
 import type { CapturedRequest, LlmExchange, LlmMessage } from './types.js';
@@ -58,6 +59,17 @@ describe('previousCall', () => {
 	it('finds nothing for the first call', () => {
 		expect(previousCall([a1, o1, a2], a1)).toBeUndefined();
 		expect(previousCall([a1, o1, a2], o1)).toBeUndefined();
+	});
+});
+
+describe('unreadCalls', () => {
+	it('names the one call that could not be read', () => {
+		expect(unreadCalls(true, false)).toBe('this call');
+		expect(unreadCalls(false, true)).toBe('the other call');
+	});
+
+	it('names both when neither could be read', () => {
+		expect(unreadCalls(true, true)).toBe('either call');
 	});
 });
 
