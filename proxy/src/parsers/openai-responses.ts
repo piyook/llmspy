@@ -230,6 +230,52 @@ const DELTAS: Record<string, (item: JsonObject, text: string) => void> = {
 	},
 };
 
+const CLOSING_EVENTS = new Set([
+	'response.completed',
+	'response.incomplete',
+	'response.failed',
+]);
+
+/** The output items so far, and the joined deltas of each. */
+interface ItemsState {
+	items: JsonObject[];
+	/** Items whose `output_item.done` came; it holds the whole item. */
+	finished: Set<number>;
+	/** By output index and delta event type. */
+	deltas: Map<string, { index: number; type: string; text: string }>;
+}
+
+/** Keeps an output item, or adds a delta piece to the ones for its item. */
+function addItemEvent(
+	state: ItemsState,
+	type: string,
+	event: JsonObject,
+): void {
+	const index = asNumber(event.output_index);
+	if (index === undefined) return;
+	if (
+		type === 'response.output_item.added' ||
+		type === 'response.output_item.done'
+	) {
+		state.items[index] = { ...asRecord(event.item) };
+		if (type === 'response.output_item.done') state.finished.add(index);
+	} else if (Object.hasOwn(DELTAS, type)) {
+		const key = `${index} ${type}`;
+		const delta = state.deltas.get(key) ?? { index, type, text: '' };
+		delta.text += asString(event.delta) ?? '';
+		state.deltas.set(key, delta);
+	}
+}
+
+/** The items, with the deltas written into those not finished. */
+function rebuiltItems(state: ItemsState): JsonObject[] {
+	for (const { index, type, text } of state.deltas.values()) {
+		const item = state.items[index];
+		if (item && !state.finished.has(index)) DELTAS[type]?.(item, text);
+	}
+	return state.items;
+}
+
 /**
  * The closing event (`response.completed`, `.incomplete` or `.failed`)
  * carries the whole response, so that is read. A stream cut short before it
@@ -241,21 +287,16 @@ function parseStream(events: unknown[]): LlmResponse {
 
 	let model: string | undefined;
 	let error: LlmError | undefined;
-	const items: JsonObject[] = [];
-	const finished = new Set<number>();
-	const deltas = new Map<
-		string,
-		{ index: number; type: string; text: string }
-	>();
+	const state: ItemsState = {
+		items: [],
+		finished: new Set(),
+		deltas: new Map(),
+	};
 
 	for (const raw of events) {
 		const event = asRecord(raw);
 		const type = asString(event.type) ?? '';
-		if (
-			type === 'response.completed' ||
-			type === 'response.incomplete' ||
-			type === 'response.failed'
-		) {
+		if (CLOSING_EVENTS.has(type)) {
 			const response = parseResponse(event.response);
 			if (error && !response.error) response.error = error;
 			return response;
@@ -265,30 +306,15 @@ function parseStream(events: unknown[]): LlmResponse {
 			continue;
 		}
 		model = asString(asRecord(event.response).model) ?? model;
-
-		const index = asNumber(event.output_index);
-		if (index === undefined) continue;
-		if (
-			type === 'response.output_item.added' ||
-			type === 'response.output_item.done'
-		) {
-			items[index] = { ...asRecord(event.item) };
-			if (type === 'response.output_item.done') finished.add(index);
-		} else if (Object.hasOwn(DELTAS, type)) {
-			const key = `${index} ${type}`;
-			const delta = deltas.get(key) ?? { index, type, text: '' };
-			delta.text += asString(event.delta) ?? '';
-			deltas.set(key, delta);
-		}
+		addItemEvent(state, type, event);
 	}
 
-	for (const { index, type, text } of deltas.values()) {
-		const item = items[index];
-		if (item && !finished.has(index)) DELTAS[type]?.(item, text);
-	}
 	return {
 		model,
-		output: { role: 'assistant', parts: items.flatMap(outputParts) },
+		output: {
+			role: 'assistant',
+			parts: rebuiltItems(state).flatMap(outputParts),
+		},
 		...(error && { error }),
 	};
 }
