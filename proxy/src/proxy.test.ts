@@ -113,7 +113,10 @@ describe('ProxyServer', () => {
 			res.once('data', (chunk: Buffer) => resolve(chunk.toString())),
 		);
 		expect(first).toBe('data: one\n\n');
-		expect(store.getRequests()).toHaveLength(0);
+		const running = await onlyCaptured(store);
+		expect(running.response).toMatchObject({ status: 200, body: '' });
+		expect(running.timings.end).toBeUndefined();
+		expect(running.latency).toBeUndefined();
 
 		release();
 		expect((await readAll(res)).toString()).toBe('data: two\n\n');
@@ -138,6 +141,47 @@ describe('ProxyServer', () => {
 		expect(firstByte).toBeGreaterThanOrEqual(start);
 		expect(end).toBeGreaterThanOrEqual(firstByte ?? Number.NaN);
 		expect(captured.latency).toBe((end ?? 0) - start);
+	});
+
+	it('records and broadcasts a call before the upstream answers, then replaces it when it ends', async () => {
+		let release = () => {};
+		const released = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		const upstream = await startUpstream(async (req, res) => {
+			req.resume();
+			await released;
+			res.end('{}');
+		});
+		const { base, store } = await startProxy(upstream);
+
+		const events = await request(`${base}/events`);
+		const received: string[] = [];
+		events.on('data', (chunk: Buffer) => received.push(chunk.toString()));
+
+		const res = request(`${base}/fake/v1/messages`, {
+			method: 'POST',
+			body: '{"model":"claude-test","messages":[]}',
+		});
+
+		const waiting = await onlyCaptured(store);
+		expect(waiting.body).toBe('{"model":"claude-test","messages":[]}');
+		expect(waiting.response).toBeUndefined();
+		expect(waiting.timings.end).toBeUndefined();
+		expect(waiting.llm?.model).toBe('claude-test');
+		await vi.waitFor(() => expect(received.join('')).toContain(waiting.id));
+
+		release();
+		await readAll(await res);
+		await vi.waitFor(() =>
+			expect(store.getRequests()[0].timings.end).toBeDefined(),
+		);
+		expect(store.getRequests()).toHaveLength(1);
+		expect(store.getRequests()[0]).toMatchObject({
+			id: waiting.id,
+			response: { status: 200, body: '{}' },
+		});
+		events.destroy();
 	});
 
 	it('forwards compressed bytes unchanged and captures the decompressed body', async () => {

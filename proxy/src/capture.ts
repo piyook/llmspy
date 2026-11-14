@@ -108,10 +108,21 @@ export function decodeBody(
 	}
 }
 
+export interface CaptureHandlers {
+	/**
+	 * The exchange so far, while it runs: once the request body has arrived,
+	 * and again when the response headers arrive (`response.body` is then
+	 * still empty). `timings.end` is not set yet.
+	 */
+	onUpdate: (captured: CapturedRequest) => void;
+	/** The whole exchange, once, when the response has been sent or it failed. */
+	onDone: (captured: CapturedRequest) => void;
+}
+
 /**
  * Forwards one request to `target` and streams the response back unchanged,
- * chunk by chunk, keeping a copy of both bodies. Calls `onDone` once with the
- * captured exchange when the response has been sent or the exchange failed.
+ * chunk by chunk, keeping a copy of both bodies. Each handler gets the same
+ * record, updated as the exchange goes on.
  *
  * It does not care how the request arrived, so any front end (base-URL
  * routes now, an intercepting proxy later) can hand requests to it.
@@ -121,7 +132,7 @@ export function forwardAndCapture(
 	res: http.ServerResponse,
 	provider: string,
 	target: URL,
-	onDone: (captured: CapturedRequest) => void,
+	{ onUpdate, onDone }: CaptureHandlers,
 ): void {
 	const start = Date.now();
 	const captured: CapturedRequest = {
@@ -175,6 +186,14 @@ export function forwardAndCapture(
 	});
 
 	req.on('data', (chunk: Buffer) => requestChunks.push(chunk));
+	req.on('end', () => {
+		if (finished) return;
+		captured.body = decodeBody(
+			Buffer.concat(requestChunks),
+			req.headers['content-encoding'],
+		);
+		onUpdate(captured);
+	});
 	req.pipe(upstreamReq);
 
 	upstreamReq.on('response', (response) => {
@@ -184,6 +203,12 @@ export function forwardAndCapture(
 			response.statusCode ?? 502,
 			stripHopByHop(response.headers),
 		);
+		captured.response = {
+			status: response.statusCode ?? 0,
+			headers: stripHopByHop(response.headers),
+			body: '',
+		};
+		onUpdate(captured);
 		response.on('data', (chunk: Buffer) => responseChunks.push(chunk));
 		response.on('error', (error) => {
 			finish(`Upstream response failed: ${error.message}`);

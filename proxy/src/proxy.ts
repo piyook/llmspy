@@ -80,18 +80,27 @@ export class ProxyServer {
 			return;
 		}
 
-		forwardAndCapture(
-			req,
-			res,
-			route.provider,
-			route.target,
-			(captured) => {
-				const llm = parseExchange(captured);
-				if (llm) captured.llm = llm;
-				this.store.addRequest(captured);
-				this.broadcast(captured);
+		forwardAndCapture(req, res, route.provider, route.target, {
+			onUpdate: (captured) => {
+				// Until it ends only the request can be read; the reply body
+				// is still empty, and parsing it would report an error.
+				if (!captured.response) this.record(captured);
+				else this.publish(captured);
 			},
-		);
+			onDone: (captured) => this.record(captured),
+		});
+	}
+
+	/** Parses a capture, then stores and broadcasts it. */
+	private record(captured: CapturedRequest): void {
+		const llm = parseExchange(captured);
+		if (llm) captured.llm = llm;
+		this.publish(captured);
+	}
+
+	private publish(captured: CapturedRequest): void {
+		this.store.addRequest(captured);
+		this.broadcast(captured);
 	}
 
 	private async handleStaticOrNotFound(

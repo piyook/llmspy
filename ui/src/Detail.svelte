@@ -1,6 +1,7 @@
 <script lang="ts">
 import CompareView from './CompareView.svelte';
 import ConversationView from './ConversationView.svelte';
+import { callState } from './lib/requests.js';
 import type { CapturedRequest, Tab } from './lib/types.js';
 import RawView from './RawView.svelte';
 
@@ -56,7 +57,11 @@ const tab = $derived<Tab>(
 {#if tab === 'conversation' && request.llm}
   <!-- Keyed, so the fold state starts fresh for each request. -->
   {#key request.id}
-    <ConversationView llm={request.llm} captureError={request.error} />
+    <ConversationView
+      llm={request.llm}
+      captureError={request.error}
+      running={callState(request) !== 'done'}
+    />
   {/key}
 {:else if tab === 'compare'}
   {#key `${request.id} ${other?.id}`}

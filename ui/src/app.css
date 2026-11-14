@@ -524,6 +524,10 @@ body {
 	color: var(--warning);
 }
 
+.status-running {
+	color: var(--accent);
+}
+
 /* Raw view of the selected request. */
 .raw-target {
 	margin: 0 0 1rem;
