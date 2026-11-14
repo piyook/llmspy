@@ -22,10 +22,10 @@ It is for local development only. It listens on `127.0.0.1`, masks API keys in w
 With Docker:
 
 ```bash
-docker compose up -d --build
+npm run start:docker   # docker compose up -d --build
 ```
 
-LLMSpy then runs in the background, restarts with Docker, and serves the proxy and the UI on `http://127.0.0.1:8080`. The port is published on the loopback interface only, so nothing outside your machine can reach it. `docker compose down` stops it; captured requests are kept in memory and go with it.
+LLMSpy then runs in the background, restarts with Docker, and serves the proxy and the UI on `http://127.0.0.1:8080`. The port is published on the loopback interface only, so nothing outside your machine can reach it. `npm run stop:docker` (`docker compose down`) stops it; captured requests are kept in memory and go with it.
 
 Then point an app at the proxy by the provider's path prefix:
 
@@ -78,17 +78,20 @@ npm install
 npm run dev
 ```
 
-This starts the proxy on `http://127.0.0.1:8080` and the web UI, with live reload, on `http://localhost:3000`. Stop the Docker container first, as both use port 8080. `npm run build` then `npm start` runs the built proxy, which serves the built UI itself at `http://127.0.0.1:8080/`.
+This starts the proxy on `http://127.0.0.1:8080` and the web UI, with live reload, on `http://localhost:3000`. Stop the Docker container first, as both use port 8080. `npm run build` then `npm start` runs the built proxy, which serves the built UI itself at `http://127.0.0.1:8080/`. `npm run stop`, from any terminal, stops it: on startup the proxy writes its pid to `~/.llmspy/llmspy.pid`.
 
-| Command             | What it does                        |
-| ------------------- | ----------------------------------- |
-| `npm run dev`       | Proxy and UI with reload            |
-| `npm run build`     | Build both packages                 |
-| `npm start`         | Run the built proxy                 |
-| `npm test`          | Run the tests                       |
-| `npm run lint`      | Biome lint and format check         |
-| `npm run typecheck` | `tsc` for the proxy, `svelte-check` for the UI |
-| `npm run mock`      | Mock LLM APIs for testing (below)   |
+| Command                | What it does                                   |
+| ---------------------- | ---------------------------------------------- |
+| `npm run dev`          | Proxy and UI with reload                       |
+| `npm run build`        | Build both packages                            |
+| `npm start`            | Run the built proxy                            |
+| `npm run stop`         | Stop the proxy started with `npm start`        |
+| `npm run start:docker` | Build and start the Docker container           |
+| `npm run stop:docker`  | Stop and remove the Docker container           |
+| `npm test`             | Run the tests                                  |
+| `npm run lint`         | Biome lint and format check                    |
+| `npm run typecheck`    | `tsc` for the proxy, `svelte-check` for the UI |
+| `npm run mock`         | Mock LLM APIs for testing (below)              |
 
 ### Testing without an API key
 

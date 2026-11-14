@@ -186,6 +186,7 @@ describe('ProxyServer', () => {
 		const res = await request(`${base}/ping`);
 		const body = JSON.parse((await readAll(res)).toString());
 		expect(body.port).toBe(Number(new URL(base).port));
+		expect(body.pid).toBe(process.pid);
 	});
 
 	it('opens /events straight away when there is nothing to replay', async () => {
