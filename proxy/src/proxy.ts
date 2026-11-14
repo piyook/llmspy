@@ -1,11 +1,21 @@
 import * as http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { forwardAndCapture } from './capture.js';
+import { isAllowedUiRequest } from './guard.js';
 import { parseExchange } from './parsers/index.js';
 import { serveStatic } from './static.js';
 import type { RequestStore } from './store.js';
 import type { CapturedRequest, ProxyConfig } from './types.js';
 import { listUpstreams, resolveRoute } from './upstreams.js';
+
+/**
+ * The routes that serve captured traffic or act on it. Upstream forwarding is
+ * not guarded: apps in other containers reach it by other host names.
+ */
+function isUiRoute(url: string): boolean {
+	const path = url.split('?')[0];
+	return path === '/ping' || path === '/events' || path.startsWith('/api/');
+}
 
 /**
  * One HTTP server for both jobs: `/<upstream>/...` is forwarded and captured,
@@ -30,6 +40,15 @@ export class ProxyServer {
 		res: http.ServerResponse,
 	): void {
 		const url = req.url ?? '/';
+
+		if (
+			isUiRoute(url) &&
+			!isAllowedUiRequest(req.headers, this.config.host)
+		) {
+			res.writeHead(403, { 'content-type': 'text/plain; charset=utf-8' });
+			res.end('LLMSpy: the UI API only answers the UI on this machine.');
+			return;
+		}
 
 		if (url === '/ping') {
 			this.handlePing(res);
