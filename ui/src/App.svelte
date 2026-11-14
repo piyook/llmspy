@@ -126,6 +126,7 @@ async function clearRequests() {
       <RequestRow
         {request}
         selected={request.id === selectedId}
+        {comparing}
         compared={comparing && request.id === other?.id}
         onselect={() => onrowclick(request.id)}
       />

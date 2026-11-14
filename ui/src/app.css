@@ -22,6 +22,7 @@
 	--danger-button: #e53935;
 	--danger-button-hover: #c62828;
 	--on-danger: white;
+	--surface-current: #e3f4e4;
 	--surface-compared: #fde8e8;
 	--diff-added-bg: #e3f4e4;
 	--diff-removed-bg: #fbe4e4;
@@ -62,6 +63,7 @@
 		--danger-button: #ff4444;
 		--danger-button-hover: #ff6666;
 		--on-danger: white;
+		--surface-current: #2c4a2e;
 		--surface-compared: #4a2c2c;
 		--diff-added-bg: rgba(76, 175, 80, 0.18);
 		--diff-removed-bg: rgba(244, 67, 54, 0.18);
@@ -89,6 +91,7 @@
 	--danger-button: #ff4444;
 	--danger-button-hover: #ff6666;
 	--on-danger: white;
+	--surface-current: #2c4a2e;
 	--surface-compared: #4a2c2c;
 	--diff-added-bg: rgba(76, 175, 80, 0.18);
 	--diff-removed-bg: rgba(244, 67, 54, 0.18);
@@ -446,7 +449,15 @@ body {
 	background: var(--surface-selected);
 }
 
-/* The call the Compare tab compares the selected one with: red, as the selected one is blue. */
+/*
+ * While the Compare tab is open: the selected call green and the one it is compared
+ * with red, the colours of their lines in the diff.
+ */
+.row.current {
+	border-color: var(--success);
+	background: var(--surface-current);
+}
+
 .row.compared {
 	border-color: var(--danger);
 	background: var(--surface-compared);
@@ -758,7 +769,7 @@ body {
 
 /* The same colours as the two rows in the list. */
 .compare-this {
-	border-left-color: var(--accent);
+	border-left-color: var(--success);
 }
 
 .compare-other {

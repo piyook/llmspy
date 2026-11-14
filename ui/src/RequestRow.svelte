@@ -7,15 +7,18 @@ import {
 } from './lib/format.js';
 import type { CapturedRequest } from './lib/types.js';
 
-// compared: the call the Compare tab compares the selected one with.
+// comparing: whether the Compare tab is open. compared: the call it
+// compares the selected one with.
 let {
 	request,
 	selected,
+	comparing = false,
 	compared = false,
 	onselect,
 }: {
 	request: CapturedRequest;
 	selected: boolean;
+	comparing?: boolean;
 	compared?: boolean;
 	onselect: () => void;
 } = $props();
@@ -37,6 +40,7 @@ const replyError = $derived(
   type="button"
   class="row"
   class:selected
+  class:current={selected && comparing}
   class:compared
   aria-pressed={selected}
   onclick={onselect}
