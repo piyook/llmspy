@@ -2,7 +2,7 @@
 
 A lightweight local developer tool that shows LLM API traffic in real time, with next to no setup.
 
-- **Live capture**: every call to Anthropic, OpenAI or any other upstream you add shows up as it finishes, and streamed replies still stream to the app
+- **Live capture**: every call to Anthropic, OpenAI or any other upstream you add shows up as soon as it is sent and is filled in when the reply ends, and streamed replies still stream to the app
 - **Conversation view**: system prompt, tools, messages, tool calls matched to their results, and the reply with its stop reason and token use
 - **Raw view**: headers and bodies exactly as sent and received, with API keys masked
 - **Compare**: diff a call against the one before it, or any other, to see what an agent changed between turns
@@ -34,7 +34,7 @@ It is for local development only. It listens on `127.0.0.1`, masks API keys in w
 
 ## What you see
 
-Every call appears in the list on the left as it happens, newest first, with its status, time taken and token counts. Select one to look at it three ways.
+Every call appears in the list on the left as soon as it is sent, newest first, with its status, time taken and token counts. A call still running is marked `waiting` or `replying` with a running timer; its reply shows once it ends. Select one to look at it three ways.
 
 **Conversation** (above) reads the call as the model sees it: the system prompt and tools, then each message by role, with tool calls matched to their results, and the reply at the end with its stop reason and token use. Streamed replies are put back together. LLMSpy reads the Anthropic Messages, OpenAI Chat Completions and OpenAI Responses formats.
 

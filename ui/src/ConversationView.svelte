@@ -4,8 +4,12 @@ import type { LlmExchange } from './lib/types.js';
 import Message from './Message.svelte';
 
 // captureError: the capture's own error, such as the stream breaking off.
-let { llm, captureError }: { llm: LlmExchange; captureError?: string } =
-	$props();
+// running: the call has not ended yet, so there is no reply to show.
+let {
+	llm,
+	captureError,
+	running = false,
+}: { llm: LlmExchange; captureError?: string; running?: boolean } = $props();
 
 const names = $derived(toolNames(llm));
 const usage = $derived(usageSummary(llm.usage));
@@ -74,7 +78,13 @@ function setAll(value: boolean) {
   />
 {/each}
 
-{#if llm.output}
+{#if running}
+  <h3 class="reply-heading">Reply</h3>
+  <p class="notice" role="status">
+    Waiting for the reply. It shows here when the call ends; the Raw tab has
+    the request as sent.
+  </p>
+{:else if llm.output}
   <h3 class="reply-heading">Reply</h3>
   <Message
     message={llm.output}

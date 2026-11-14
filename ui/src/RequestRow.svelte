@@ -1,10 +1,12 @@
 <script lang="ts">
 import {
+	formatElapsed,
 	formatLatency,
 	formatTime,
 	formatTokens,
 	statusClass,
 } from './lib/format.js';
+import { callState } from './lib/requests.js';
 import type { CapturedRequest } from './lib/types.js';
 
 // comparing: whether the Compare tab is open. compared: the call it
@@ -22,6 +24,16 @@ let {
 	compared?: boolean;
 	onselect: () => void;
 } = $props();
+
+const phase = $derived(callState(request));
+// Ticks once a second, only while the call is running.
+let now = $state(Date.now());
+$effect(() => {
+	if (phase === 'done') return;
+	now = Date.now();
+	const timer = setInterval(() => (now = Date.now()), 1000);
+	return () => clearInterval(timer);
+});
 
 const usage = $derived(request.llm?.usage);
 const hasTokens = $derived(
@@ -56,7 +68,10 @@ const replyError = $derived(
     {#if replyError !== undefined}
       <span class="status-error" title={replyError}>error</span>
     {/if}
-    {#if request.latency !== undefined}
+    {#if phase !== 'done'}
+      <span class="status-running">{phase}</span>
+      <span class="latency">{formatElapsed(now - request.timings.start)}</span>
+    {:else if request.latency !== undefined}
       <span class="latency">{formatLatency(request.latency)}</span>
     {/if}
   </span>

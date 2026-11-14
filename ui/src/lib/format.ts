@@ -6,6 +6,14 @@ export function formatLatency(ms: number): string {
 	return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(2)}s`;
 }
 
+/** Time so far for a call still running, in whole seconds: `0s`, `42s`, `3m 05s`. */
+export function formatElapsed(ms: number): string {
+	const seconds = Math.max(0, Math.floor(ms / 1000));
+	if (seconds < 60) return `${seconds}s`;
+	const rest = String(seconds % 60).padStart(2, '0');
+	return `${Math.floor(seconds / 60)}m ${rest}s`;
+}
+
 /** `1234` -> `1.2k`; `?` when the provider did not report it. */
 export function formatTokens(count?: number): string {
 	if (count === undefined) return '?';
