@@ -6,6 +6,7 @@ let {
 	label,
 	buttonClass = 'header-btn',
 	buttonLabel,
+	align = 'end',
 	onopen,
 	trigger,
 	children,
@@ -17,6 +18,8 @@ let {
 	buttonClass?: string;
 	/** Accessible name and tooltip for a button whose content is only an icon. */
 	buttonLabel?: string;
+	/** Where the panel sits under the button: centred, or level with its right edge. */
+	align?: 'center' | 'end';
 	onopen?: () => void;
 	trigger: Snippet;
 	children: Snippet;
@@ -26,6 +29,31 @@ let open = $state(false);
 let wrapper: HTMLDivElement;
 let button: HTMLButtonElement;
 let panel = $state<HTMLDivElement>();
+// How far the panel is moved sideways to stay inside the window, in px.
+let shift = $state(0);
+
+/** The closest the panel may come to either side of the window, in px. */
+const EDGE = 16;
+
+// Measured without the current shift, so it settles in one pass.
+function fit() {
+	if (!panel) return;
+	const rect = panel.getBoundingClientRect();
+	const left = rect.left - shift;
+	const right = rect.right - shift;
+	if (left < EDGE) shift = EDGE - left;
+	else if (right > window.innerWidth - EDGE) {
+		shift = window.innerWidth - EDGE - right;
+	} else shift = 0;
+}
+
+// Again whenever the panel changes size, e.g. when its content has loaded.
+$effect(() => {
+	if (!panel) return;
+	const observer = new ResizeObserver(fit);
+	observer.observe(panel);
+	return () => observer.disconnect();
+});
 
 async function show() {
 	open = true;
@@ -59,7 +87,11 @@ function onFocusOut(event: FocusEvent) {
 }
 </script>
 
-<svelte:window onpointerdown={onWindowPointerDown} onkeydown={onWindowKeyDown} />
+<svelte:window
+  onpointerdown={onWindowPointerDown}
+  onkeydown={onWindowKeyDown}
+  onresize={fit}
+/>
 
 <div class="popover-wrapper" bind:this={wrapper} onfocusout={onFocusOut}>
   <button
@@ -80,6 +112,8 @@ function onFocusOut(event: FocusEvent) {
     <div
       {id}
       class="popover"
+      class:popover-center={align === 'center'}
+      style:translate={shift ? `${shift}px 0` : undefined}
       role="dialog"
       aria-label={label}
       tabindex="-1"

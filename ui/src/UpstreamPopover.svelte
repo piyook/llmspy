@@ -49,7 +49,7 @@ async function copy(name: string) {
 }
 </script>
 
-<Popover id="upstream-popover" label="Base URLs" onopen={load}>
+<Popover id="upstream-popover" label="Base URLs" align="center" onopen={load}>
   {#snippet trigger()}Base URLs{/snippet}
 
   <p class="popover-hint">Point an app's base URL at one of these.</p>
