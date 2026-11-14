@@ -309,6 +309,19 @@ body {
 	color: #ff9800;
 }
 
+.error-notice {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	margin: 1rem 0 0;
+	border-color: #f44336;
+	color: #f44336;
+}
+
+.error-hint {
+	color: #aaa;
+}
+
 .conv-meta,
 .conv-footer,
 .conv-actions {
