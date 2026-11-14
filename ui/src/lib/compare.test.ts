@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+	bodyChanges,
 	diffRows,
 	fieldChanges,
 	formatDelta,
 	messageChanges,
 	messageSummary,
+	prettyBody,
 	previousCall,
 	textChanges,
 	toolChanges,
@@ -315,5 +317,46 @@ describe('diffRows', () => {
 		expect(
 			diffRows([{ value: 'end', added: true, removed: false, count: 1 }]),
 		).toEqual([{ kind: 'added', text: 'end' }]);
+	});
+});
+
+describe('prettyBody', () => {
+	it('sorts keys at every level and indents', () => {
+		expect(prettyBody('{"b":1,"a":{"d":[{"z":1,"y":2}],"c":null}}')).toBe(
+			`${JSON.stringify({ a: { c: null, d: [{ y: 2, z: 1 }] }, b: 1 }, null, 2)}\n`,
+		);
+	});
+
+	it('keeps a body that is not JSON as it is', () => {
+		expect(prettyBody('data: {"x":1}\n\n')).toBe('data: {"x":1}\n\n');
+		expect(prettyBody('plain')).toBe('plain\n');
+	});
+});
+
+describe('bodyChanges', () => {
+	it('finds no change when only key order or spacing differ', () => {
+		expect(bodyChanges('{"a":1,"b":2}', '{ "b": 2, "a": 1 }')).toBe('same');
+	});
+
+	it('shows a changed setting as one removed and one added line', () => {
+		const changes = bodyChanges(
+			'{"max_tokens":512,"model":"m"}',
+			'{"max_tokens":1024,"model":"m"}',
+		);
+		expect(Array.isArray(changes) && changes.map((c) => c.value)).toEqual([
+			'{\n',
+			'  "max_tokens": 512,\n',
+			'  "max_tokens": 1024,\n',
+			'  "model": "m"\n}\n',
+		]);
+	});
+
+	it('gives up on a diff that takes too long', () => {
+		const big = (seed: number) =>
+			Array.from(
+				{ length: 20000 },
+				(_, i) => `${(i * seed) % 9973}`,
+			).join('\n');
+		expect(bodyChanges(big(7), big(13), 1)).toBe('too-slow');
 	});
 });

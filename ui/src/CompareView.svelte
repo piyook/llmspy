@@ -1,5 +1,6 @@
 <script lang="ts">
 import {
+	bodyChanges,
 	fieldChanges,
 	formatDelta,
 	messageChanges,
@@ -34,6 +35,10 @@ const pair = $derived(
 		? { call: request.llm, other: other.llm }
 		: undefined,
 );
+// Every difference, including settings and tool schemas the summary leaves out.
+const body = $derived(
+	other ? bodyChanges(other.body, request.body) : undefined,
+);
 </script>
 
 {#snippet label(call: CapturedRequest)}
@@ -46,9 +51,9 @@ const pair = $derived(
 
 <div class="compare-head">
   <div class="compare-calls">
-    <span class="compare-role">This call</span>
+    <span class="compare-role compare-this">This call</span>
     {@render label(request)}
-    <span class="compare-role">Compared with</span>
+    <span class="compare-role compare-other">Compared with</span>
     {#if other}
       {@render label(other)}
     {:else}
@@ -63,12 +68,26 @@ const pair = $derived(
 {#if other && !pair}
   <p class="notice">
     LLMSpy could not read {!request.llm && !other.llm ? 'either call' : request.llm ? 'the other call' : 'this call'}
-    as an LLM call, so there is no summary to compare.
+    as an LLM call, so only the request bodies are compared.
   </p>
 {/if}
 
 {#if pair}
   {@render summary(pair.other, pair.call)}
+{/if}
+
+{#if body === 'same'}
+  <p class="compare-note">The request bodies are the same.</p>
+{:else if body === 'too-slow'}
+  <p class="notice">
+    The request bodies are too large and different to compare here. The Raw
+    tab of each call shows them in full.
+  </p>
+{:else if body}
+  <details class="section" open={!pair}>
+    <summary>Request body</summary>
+    <TextDiff changes={body} />
+  </details>
 {/if}
 
 {#snippet summary(before: LlmExchange, after: LlmExchange)}

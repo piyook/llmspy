@@ -22,6 +22,7 @@
 	--danger-button: #e53935;
 	--danger-button-hover: #c62828;
 	--on-danger: white;
+	--surface-compared: #fde8e8;
 	--diff-added-bg: #e3f4e4;
 	--diff-removed-bg: #fbe4e4;
 
@@ -61,6 +62,7 @@
 		--danger-button: #ff4444;
 		--danger-button-hover: #ff6666;
 		--on-danger: white;
+		--surface-compared: #4a2c2c;
 		--diff-added-bg: rgba(76, 175, 80, 0.18);
 		--diff-removed-bg: rgba(244, 67, 54, 0.18);
 
@@ -87,6 +89,7 @@
 	--danger-button: #ff4444;
 	--danger-button-hover: #ff6666;
 	--on-danger: white;
+	--surface-compared: #4a2c2c;
 	--diff-added-bg: rgba(76, 175, 80, 0.18);
 	--diff-removed-bg: rgba(244, 67, 54, 0.18);
 
@@ -443,10 +446,10 @@ body {
 	background: var(--surface-selected);
 }
 
-/* The call the Compare tab compares the selected one with. */
+/* The call the Compare tab compares the selected one with: red, as the selected one is blue. */
 .row.compared {
-	border-color: var(--accent);
-	border-style: dashed;
+	border-color: var(--danger);
+	background: var(--surface-compared);
 }
 
 /* While picking a call to compare with, a click picks instead of selecting. */
@@ -748,7 +751,18 @@ body {
 }
 
 .compare-role {
+	padding-left: 0.4rem;
+	border-left: 3px solid;
 	color: var(--text-muted);
+}
+
+/* The same colours as the two rows in the list. */
+.compare-this {
+	border-left-color: var(--accent);
+}
+
+.compare-other {
+	border-left-color: var(--danger);
 }
 
 .compare-call {

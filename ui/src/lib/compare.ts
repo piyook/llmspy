@@ -209,6 +209,50 @@ export function diffRows(changes: Change[], context = 3): DiffRow[] {
 	return rows;
 }
 
+/** How long diffing two request bodies may block the page before it gives up. */
+const BODY_DIFF_TIMEOUT_MS = 1000;
+
+/**
+ * Line changes between two request bodies, each pretty-printed with sorted
+ * keys when it is JSON, so only real differences show. `'same'` when they
+ * match, `'too-slow'` when the diff gave up (huge, very different bodies).
+ */
+export function bodyChanges(
+	other: string,
+	call: string,
+	timeout = BODY_DIFF_TIMEOUT_MS,
+): Change[] | 'same' | 'too-slow' {
+	const before = prettyBody(other);
+	const after = prettyBody(call);
+	if (before === after) return 'same';
+	return diffLines(before, after, { timeout }) ?? 'too-slow';
+}
+
+/** JSON with sorted keys and two-space indents, or the body as it is. */
+export function prettyBody(body: string): string {
+	let text = body;
+	try {
+		text = JSON.stringify(sortKeys(JSON.parse(body)), null, 2);
+	} catch {
+		// Not JSON: compare it as text.
+	}
+	// The same last line with and without a newline would show as changed.
+	return text.endsWith('\n') ? text : `${text}\n`;
+}
+
+function sortKeys(value: unknown): unknown {
+	if (Array.isArray(value)) return value.map(sortKeys);
+	if (value === null || typeof value !== 'object') return value;
+	return Object.fromEntries(
+		Object.keys(value)
+			.sort()
+			.map((key) => [
+				key,
+				sortKeys((value as Record<string, unknown>)[key]),
+			]),
+	);
+}
+
 // A change's value ends with the newline of its last line, which is not
 // another line.
 function splitLines(value: string): string[] {
