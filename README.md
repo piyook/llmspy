@@ -25,7 +25,7 @@ With Docker:
 npm run start:docker   # docker compose up -d --build
 ```
 
-LLMSpy then runs in the background, restarts with Docker, and serves the proxy and the UI on `http://127.0.0.1:8080`. The port is published on the loopback interface only, so nothing outside your machine can reach it. `npm run stop:docker` (`docker compose down`) stops it; captured requests are kept in memory and go with it.
+LLMSpy then runs in the background, restarts with Docker, and serves the proxy and the UI on `http://127.0.0.1:8080`. The port is published on the loopback interface only, so nothing outside your machine can reach it. Captured traffic (`/api/*`, `/events`, `/ping`) is only served to requests addressed to `localhost`, `127.0.0.1` or `[::1]`, and not to other web sites open in your browser. `npm run stop:docker` (`docker compose down`) stops it; captured requests are kept in memory and go with it.
 
 Then point an app at the proxy by the provider's path prefix:
 

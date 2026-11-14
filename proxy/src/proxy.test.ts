@@ -208,6 +208,66 @@ describe('ProxyServer', () => {
 		expect(res.headers['content-type']).toBe('text/event-stream');
 	});
 
+	it.each([
+		['GET', '/api/requests'],
+		['POST', '/api/clear'],
+		['GET', '/events'],
+		['GET', '/ping'],
+	])('refuses %s %s from another site', async (method, path) => {
+		const { base } = await startProxy('http://127.0.0.1:1');
+
+		const res = await request(`${base}${path}`, {
+			method,
+			headers: { origin: 'http://evil.example' },
+		});
+		res.resume();
+		expect(res.statusCode).toBe(403);
+	});
+
+	it('refuses the UI API under a rebound host name, and leaves the store alone', async () => {
+		const upstream = await startUpstream((req, res) => {
+			req.resume();
+			res.end('{}');
+		});
+		const { base, store } = await startProxy(upstream);
+		await readAll(await request(`${base}/fake/v1/messages`));
+		await onlyCaptured(store);
+
+		const res = await request(`${base}/api/clear`, {
+			method: 'POST',
+			headers: { host: 'evil.example:8080' },
+		});
+		res.resume();
+		expect(res.statusCode).toBe(403);
+		expect(store.getRequests()).toHaveLength(1);
+	});
+
+	it('allows the UI API from its own origin', async () => {
+		const { base } = await startProxy('http://127.0.0.1:1');
+
+		const res = await request(`${base}/api/clear`, {
+			method: 'POST',
+			headers: { origin: base },
+		});
+		res.resume();
+		expect(res.statusCode).toBe(200);
+	});
+
+	it('forwards upstream traffic whatever the host name', async () => {
+		const upstream = await startUpstream((req, res) => {
+			req.resume();
+			res.end('{}');
+		});
+		const { base, store } = await startProxy(upstream);
+
+		const res = await request(`${base}/fake/v1/messages`, {
+			headers: { host: 'llmspy:8080' },
+		});
+		await readAll(res);
+		expect(res.statusCode).toBe(200);
+		await onlyCaptured(store);
+	});
+
 	it('returns 404 for an unknown prefix without capturing it', async () => {
 		const { base, store } = await startProxy('http://127.0.0.1:1');
 
