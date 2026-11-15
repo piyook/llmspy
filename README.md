@@ -6,6 +6,7 @@ A lightweight local developer tool that shows LLM API traffic in real time, with
 - **Conversation view**: system prompt, tools, messages, tool calls matched to their results, and the reply with its stop reason and token use
 - **Raw view**: headers and bodies exactly as sent and received, with API keys masked
 - **Compare**: diff a call against the one before it, or any other, to see what an agent changed between turns
+- **Projects**: tag each app's base URL to give its calls their own tab
 - **Reads three formats**: Anthropic Messages, OpenAI Chat Completions and OpenAI Responses, streamed or not
 - **Lightweight**: one command to start, one base URL to set in your app; no certificates, accounts or database
 
@@ -77,6 +78,16 @@ claude
 ```
 
 Each request then appears in the UI at `http://127.0.0.1:8080`.
+
+To keep each app's calls apart, put `/@<project>` in front of the prefix. Each project gets its own tab in the UI, and the tag is not forwarded:
+
+```powershell
+$env:ANTHROPIC_BASE_URL = "http://127.0.0.1:8080/@my-app/anthropic"
+```
+
+Calls without a tag go to `general`. A project name is lowercase letters, digits and dashes, like an upstream name. The tabs appear once there is a project besides `general`; a tab you are not viewing counts its new calls, and Clear All empties only the project you are viewing.
+
+![Project tabs under the header: general, site-agent (selected, its three calls listed) and support-bot with a badge for two new calls](docs/screenshots/projects.png)
 
 For coding agents and scripts, [llms.txt](llms.txt) is a compact reference: how to run LLMSpy, point an app at it, and read the captured traffic as JSON.
 
@@ -152,7 +163,7 @@ LLMSpy prints every upstream and its base URL on startup (`docker compose logs` 
 
 ## How it works
 
-- `proxy/`: one Node HTTP server. `/<prefix>/...` is forwarded to the upstream with the bytes unchanged, chunk by chunk, while a copy of each body is kept, decompressed (gzip, deflate, br, zstd) and decoded for display. `/events` (Server-Sent Events), `/api/requests`, `/api/upstreams` (each prefix and where it forwards to) `/api/clear` and `DELETE /api/requests/<id>` serve the UI, and any other path is a file from the built UI (`ui/dist`).
+- `proxy/`: one Node HTTP server. `/<prefix>/...` (or `/@<project>/<prefix>/...`) is forwarded to the upstream with the bytes unchanged, chunk by chunk, while a copy of each body is kept, decompressed (gzip, deflate, br, zstd) and decoded for display. `/events` (Server-Sent Events), `/api/requests`, `/api/upstreams` (each prefix and where it forwards to) `/api/clear` and `DELETE /api/requests/<id>` serve the UI, and any other path is a file from the built UI (`ui/dist`).
 - `ui/`: Svelte and Vite.
 
 ## Development

@@ -39,6 +39,7 @@ Set the app's base URL to LLMSpy plus the upstream's path prefix, then start the
 - The rest of the path and the query are appended to the upstream's URL: `/anthropic/v1/messages` goes to `https://api.anthropic.com/v1/messages`. The OpenAI SDKs expect `/v1` in their base URL; the Anthropic SDK does not.
 - The app's API key is sent through to the provider as usual. LLMSpy needs no key.
 - An app in another container reaches the proxy at `http://host.docker.internal:8080/<prefix>`, or by service name in the same compose project. Forwarding answers any `Host`; only the traffic endpoints below are limited to loopback.
+- To group an app's calls into a project, put `/@<project>` in front of the prefix: `ANTHROPIC_BASE_URL=http://127.0.0.1:8080/@my-app/anthropic`. It is not forwarded, and sets the record's `project`; without it the project is `general`. Project names follow the same rule as upstream names (below); any other name gets the `404` for an unknown prefix.
 
 ## Configuration
 
@@ -69,11 +70,11 @@ LLMSPY_UPSTREAMS=ollama=http://localhost:11434,llmock=http://127.0.0.1:8001 npm 
 | `GET /ping` | `200 {"status":"running","message","port","pid","timestamp"}`; `port` is the port really bound |
 | `GET /api/requests` | `200`, a JSON array of every record, newest first |
 | `GET /api/upstreams` | `200`, a JSON array of `{"name","target"}` in configuration order; any user name or password in `target` is removed |
-| `POST /api/clear` | `200 {"success":true}`: every record is deleted and every `/events` client is sent a `clear` event. No body needed |
+| `POST /api/clear` | `200 {"success":true}`: every record is deleted and every `/events` client is sent a `clear` event. No body needed. With `?project=<name>` only that project's records are deleted; `400` when the name can not be a project |
 | `DELETE /api/requests/<id>` | `204`: that record is deleted and every `/events` client is sent a `delete` event; `404` when no record has that `id`. A call still running is stored again when it next updates |
-| `GET /events` | Server-Sent Events: on connect every stored record, newest first, then each record each time it is captured or updated. Each record is one `data: <record JSON>` line with no `event:` name. When the records are cleared it sends `event: clear` with `data: {}`: drop every record you hold. When one record is deleted it sends `event: delete` with `data: {"id":"<id>"}`: drop that record. A call arrives several times with the same `id` (more often while a reply streams): replace by `id`, and treat it as finished once `timings.end` is set |
+| `GET /events` | Server-Sent Events: on connect every stored record, newest first, then each record each time it is captured or updated. Each record is one `data: <record JSON>` line with no `event:` name. When the records are cleared it sends `event: clear` with `data: {}`: drop every record you hold; `data: {"project":"<name>"}` when only one project was: drop that project's records. When one record is deleted it sends `event: delete` with `data: {"id":"<id>"}`: drop that record. A call arrives several times with the same `id` (more often while a reply streams): replace by `id`, and treat it as finished once `timings.end` is set |
 
-- A query string is ignored: `/api/requests?limit=1` returns every record. Otherwise paths must match exactly; `/api/requests/` (trailing slash) is answered `404`. There is no paging, filtering or route to read one record; filter the array yourself.
+- A query string is ignored, except `project` on `/api/clear`: `/api/requests?limit=1` returns every record. Otherwise paths must match exactly; `/api/requests/` (trailing slash) is answered `404`. There is no paging, filtering or route to read one record; filter the array yourself.
 - These routes answer only requests whose `Host` is `localhost`, `127.0.0.1` or `[::1]` (with any port), or the address in `LLMSPY_HOST` when that is not `0.0.0.0`/`::`. A request with an `Origin` header must also come from the same origin as its `Host`. Anything else gets `403` with a plain-text message. curl, scripts and SDKs send no `Origin` and pass when they call `127.0.0.1`; a call from another container (`Host: llmspy` or `host.docker.internal`) gets `403`.
 - A record can be large (a coding agent's request is often around 1 MB), so `/api/requests` with 500 records can be hundreds of MB.
 
@@ -85,6 +86,7 @@ Each record in `/api/requests` and `/events`:
 |---|---|
 | `id` | Random UUID |
 | `timestamp` | ISO time the request arrived |
+| `project` | From `/@<project>` in front of the prefix, else `general` |
 | `provider` | The upstream name, from the path prefix |
 | `host` | The upstream host it was forwarded to |
 | `method`, `path` | As sent upstream (`path` includes the query) |

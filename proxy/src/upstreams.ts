@@ -74,23 +74,36 @@ export function listUpstreams(upstreams: Map<string, URL>): UpstreamInfo[] {
 	});
 }
 
+/** The project of a call sent without `/@<project>` in front. */
+const DEFAULT_PROJECT = 'general';
+
+/** Whether `name` can be a project name: the same rule as upstream names. */
+export function isProjectName(name: string): boolean {
+	return NAME_PATTERN.test(name);
+}
+
 export interface Route {
+	/** From an optional `/@<project>` in front, else `general`. */
+	project: string;
 	provider: string;
 	target: URL;
 }
 
 /**
  * Maps `/<name>/rest?query` to the upstream `name`, appending `rest?query`
- * to the upstream's base path. Returns undefined when no upstream matches.
+ * to the upstream's base path. An optional `/@<project>` in front tags the
+ * call with a project and is not forwarded. Returns undefined when no
+ * upstream matches or the project name is not usable.
  */
 export function resolveRoute(
 	requestUrl: string,
 	upstreams: Map<string, URL>,
 ): Route | undefined {
-	const match = /^\/([^/?]+)([^?]*)(\?.*)?$/.exec(requestUrl);
+	const match = /^(?:\/@([^/?]*))?\/([^/?]+)([^?]*)(\?.*)?$/.exec(requestUrl);
 	if (!match) return undefined;
 
-	const [, provider, rest, query] = match;
+	const [, project = DEFAULT_PROJECT, provider, rest, query] = match;
+	if (!isProjectName(project)) return undefined;
 	const base = upstreams.get(provider);
 	if (!base) return undefined;
 
@@ -99,5 +112,5 @@ export function resolveRoute(
 	const target = new URL(base.origin);
 	target.pathname = base.pathname.replace(/\/$/, '') + (rest || '/');
 	target.search = query ?? '';
-	return { provider, target };
+	return { project, provider, target };
 }

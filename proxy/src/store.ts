@@ -37,7 +37,13 @@ export class RequestStore {
 		return true;
 	}
 
-	public clear(): void {
-		this.requests = [];
+	/** Removes every request of `project`, or every request when it is undefined. */
+	public clear(project?: string): void {
+		this.requests =
+			project === undefined
+				? []
+				: this.requests.filter(
+						(request) => request.project !== project,
+					);
 	}
 }

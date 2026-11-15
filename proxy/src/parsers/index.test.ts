@@ -6,6 +6,7 @@ function capture(overrides: Partial<CapturedRequest>): CapturedRequest {
 	return {
 		id: 'id',
 		timestamp: '2026-01-01T00:00:00.000Z',
+		project: 'general',
 		provider: 'anthropic',
 		host: 'api.anthropic.com',
 		method: 'POST',

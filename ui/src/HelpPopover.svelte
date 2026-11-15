@@ -52,10 +52,16 @@ const base = $derived(`${location.protocol}//${address ?? DEFAULT_ADDRESS}`);
         Add other upstreams when starting LLMSpy:
         <code>LLMSPY_UPSTREAMS=name=url,...</code>
       </li>
+      <li>
+        Group an app's calls in their own tab by putting
+        <code>/@project</code> in front of the prefix:
+        <code class="help-code">ANTHROPIC_BASE_URL={base}/@my-app/anthropic</code>
+        Calls without it go to <code>general</code>.
+      </li>
       <li>API keys are masked. Prompts and replies are shown in full.</li>
       <li>
         Calls are kept in memory only: the latest 500, gone when LLMSpy
-        restarts. Clear All empties the list.
+        restarts. Clear All empties the project you are viewing.
       </li>
     </ul>
 

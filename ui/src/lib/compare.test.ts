@@ -19,6 +19,7 @@ function request(id: string, provider: string, start: number): CapturedRequest {
 	return {
 		id,
 		timestamp: new Date(start).toISOString(),
+		project: 'general',
 		provider,
 		host: 'api.example.com',
 		method: 'POST',
@@ -54,6 +55,14 @@ describe('previousCall', () => {
 
 	it('skips calls to other upstreams', () => {
 		expect(previousCall([a1, o1, a2], a2)?.id).toBe('a1');
+	});
+
+	it('skips calls in other projects', () => {
+		const other = {
+			...request('x2', 'anthropic', 2500),
+			project: 'my-app',
+		};
+		expect(previousCall([a1, a2, other, a3], a3)?.id).toBe('a2');
 	});
 
 	it('finds nothing for the first call', () => {

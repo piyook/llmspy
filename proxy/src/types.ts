@@ -20,6 +20,8 @@ export interface CapturedRequest {
 	id: string;
 	/** ISO time the request reached LLMSpy. */
 	timestamp: string;
+	/** From `/@<project>` in front of the upstream, else `general`. */
+	project: string;
 	/** Name of the upstream, from the path prefix (e.g. `anthropic`). */
 	provider: string;
 	/** Upstream host the request was forwarded to. */

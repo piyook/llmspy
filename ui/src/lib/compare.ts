@@ -13,7 +13,10 @@ import type {
  * with, by default the call before it.
  */
 
-/** The latest call to the same upstream that reached LLMSpy before `call`. */
+/**
+ * The latest call to the same upstream, in the same project, that reached
+ * LLMSpy before `call`.
+ */
 export function previousCall(
 	requests: Iterable<CapturedRequest>,
 	call: CapturedRequest,
@@ -22,6 +25,7 @@ export function previousCall(
 	for (const request of requests) {
 		if (
 			request.provider === call.provider &&
+			request.project === call.project &&
 			request.timings.start < call.timings.start &&
 			(!previous || request.timings.start > previous.timings.start)
 		) {
