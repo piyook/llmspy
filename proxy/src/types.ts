@@ -47,6 +47,29 @@ export interface CapturedRequest {
 	llm?: LlmExchange;
 }
 
+/**
+ * What the list of calls needs from a record: no headers or bodies, which
+ * can be large. `/events` and `GET /api/requests` send these; the full
+ * record is `GET /api/requests/<id>`.
+ */
+export interface CallSummary
+	extends Pick<
+		CapturedRequest,
+		| 'id'
+		| 'timestamp'
+		| 'project'
+		| 'provider'
+		| 'host'
+		| 'method'
+		| 'path'
+		| 'timings'
+		| 'latency'
+		| 'error'
+	> {
+	response?: { status: number };
+	llm?: Pick<LlmExchange, 'model' | 'usage' | 'error'>;
+}
+
 export interface ProxyConfig {
 	port: number;
 	/** Interface to listen on. Captured requests hold API keys, so keep this local. */

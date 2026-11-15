@@ -4,17 +4,21 @@ import { SvelteMap } from 'svelte/reactivity';
 import Detail from './Detail.svelte';
 import { previousCall } from './lib/compare.js';
 import { countSince, DEFAULT_PROJECT, projectNames } from './lib/projects.js';
-import { matchesSearch, newestFirst } from './lib/requests.js';
-import type { CapturedRequest, Tab } from './lib/types.js';
+import { fullRecord } from './lib/record.svelte.js';
+import { callState, newestFirst } from './lib/requests.js';
+import type { CallSummary, Tab } from './lib/types.js';
 import ProjectTabs from './ProjectTabs.svelte';
 import RequestRow from './RequestRow.svelte';
 import Toolbar from './Toolbar.svelte';
 
 /** How long to wait before reopening `/events` after the browser gives up on it. */
 const RECONNECT_MS = 3000;
+/** How long typing must pause before the proxy is asked for the search. */
+const SEARCH_DELAY_MS = 250;
 
-// Keyed by id, so an update to a running call replaces its row.
-const requests = new SvelteMap<string, CapturedRequest>();
+// The summary of each call, from `/events`. Keyed by id, so an update to a
+// running call replaces its row.
+const requests = new SvelteMap<string, CallSummary>();
 let search = $state('');
 let selectedId = $state<string>();
 // Whether `/events` is open: it is served by the proxy that forwards
@@ -58,6 +62,8 @@ function chooseProject(name: string) {
 
 // Looked up by id, so the selection stays put as new requests arrive.
 const selected = $derived(selectedId ? requests.get(selectedId) : undefined);
+// The detail pane shows the full record, fetched again as the call runs.
+const selectedRecord = fullRecord(() => selected);
 
 let tab = $state<Tab>('conversation');
 // The call the Compare tab compares the selected one with: the one picked
@@ -71,6 +77,13 @@ const other = $derived.by(() => {
 	return picked ?? previousCall(requests.values(), selected);
 });
 const comparing = $derived(selected !== undefined && tab === 'compare');
+// Only the Compare tab needs the other call's body.
+const otherRecord = fullRecord(() => (comparing ? other : undefined));
+// Whether the pane is waiting for a record, rather than showing an older one.
+const loading = $derived(
+	!selectedRecord.current ||
+		(comparing && other !== undefined && !otherRecord.current),
+);
 
 function onrowclick(id: string) {
 	if (picking) {
@@ -86,11 +99,47 @@ function onkeydown(event: KeyboardEvent) {
 	if (event.key === 'Escape') picking = false;
 }
 
+// The ids of the calls in the project shown that match `search`, from the
+// proxy, which holds the bodies; undefined until the first answer.
+let matches = $state.raw<Set<string>>();
+// The search is run again when a call ends, since its reply may match.
+const finished = $derived(
+	[...requests.values()].filter(
+		(call) => call.project === project && callState(call) === 'done',
+	).length,
+);
+$effect(() => {
+	const term = search;
+	const name = project;
+	void finished;
+	if (!term) {
+		matches = undefined;
+		return;
+	}
+	let stale = false;
+	const timer = setTimeout(async () => {
+		try {
+			const query = new URLSearchParams({ project: name, q: term });
+			const res = await fetch(`/api/requests?${query}`);
+			if (!res.ok) return;
+			const found: CallSummary[] = await res.json();
+			if (!stale) matches = new Set(found.map(({ id }) => id));
+		} catch (err) {
+			console.error('Failed to search requests:', err);
+		}
+	}, SEARCH_DELAY_MS);
+	return () => {
+		stale = true;
+		clearTimeout(timer);
+	};
+});
+
 const visible = $derived(
 	[...requests.values()]
 		.filter(
-			(request) =>
-				request.project === project && matchesSearch(request, search),
+			(call) =>
+				call.project === project &&
+				(!search || !matches || matches.has(call.id)),
 		)
 		.sort(newestFirst),
 );
@@ -110,8 +159,8 @@ onMount(() => {
 			loadAddress();
 		};
 		events.onmessage = (event) => {
-			const request: CapturedRequest = JSON.parse(event.data);
-			requests.set(request.id, request);
+			const call: CallSummary = JSON.parse(event.data);
+			requests.set(call.id, call);
 		};
 		// Clear All in any tab, or a `POST /api/clear` from elsewhere: of one
 		// project, or of every project when none is named.
@@ -216,10 +265,12 @@ async function clearRequests() {
   </section>
 
   <section class="detail" aria-label="Selected request">
-    {#if selected}
+    {#if selected && loading}
+      <div class="no-requests">Loading…</div>
+    {:else if selectedRecord.current}
       <Detail
-        request={selected}
-        {other}
+        request={selectedRecord.current}
+        other={otherRecord.current}
         {picking}
         onpick={() => (picking = !picking)}
         bind:chosen={tab}

@@ -68,19 +68,20 @@ LLMSPY_UPSTREAMS=ollama=http://localhost:11434,llmock=http://127.0.0.1:8001 npm 
 | Route | Returns |
 |---|---|
 | `GET /ping` | `200 {"status":"running","message","port","pid","timestamp"}`; `port` is the port really bound |
-| `GET /api/requests` | `200`, a JSON array of every record, newest first |
+| `GET /api/requests` | `200`, a JSON array of the summary of every record, newest first (below). `?project=<name>` keeps that project's (`400` when the name can not be a project); `?q=<text>` keeps those whose `host`, `path`, request body or response body holds the text, ignoring case. Both together keep calls that match both |
+| `GET /api/requests/<id>` | `200`, the full record; `404` when no record has that `id` |
 | `GET /api/upstreams` | `200`, a JSON array of `{"name","target"}` in configuration order; any user name or password in `target` is removed |
 | `POST /api/clear` | `200 {"success":true}`: every record is deleted and every `/events` client is sent a `clear` event. No body needed. With `?project=<name>` only that project's records are deleted; `400` when the name can not be a project |
 | `DELETE /api/requests/<id>` | `204`: that record is deleted and every `/events` client is sent a `delete` event; `404` when no record has that `id`. A call still running is stored again when it next updates |
-| `GET /events` | Server-Sent Events: on connect every stored record, newest first, then each record each time it is captured or updated. Each record is one `data: <record JSON>` line with no `event:` name. When the records are cleared it sends `event: clear` with `data: {}`: drop every record you hold; `data: {"project":"<name>"}` when only one project was: drop that project's records. When one record is deleted it sends `event: delete` with `data: {"id":"<id>"}`: drop that record. A call arrives several times with the same `id` (more often while a reply streams): replace by `id`, and treat it as finished once `timings.end` is set |
+| `GET /events` | Server-Sent Events: on connect the summary of every stored record, newest first, then a record's summary each time it is captured or updated. Each summary is one `data: <summary JSON>` line with no `event:` name; read the full record from `GET /api/requests/<id>`. When the records are cleared it sends `event: clear` with `data: {}`: drop every record you hold; `data: {"project":"<name>"}` when only one project was: drop that project's records. When one record is deleted it sends `event: delete` with `data: {"id":"<id>"}`: drop that record. A call arrives several times with the same `id` (more often while a reply streams): replace by `id`, and treat it as finished once `timings.end` is set |
 
-- A query string is ignored, except `project` on `/api/clear`: `/api/requests?limit=1` returns every record. Otherwise paths must match exactly; `/api/requests/` (trailing slash) is answered `404`. There is no paging, filtering or route to read one record; filter the array yourself.
+- A query string is ignored, except `project` on `/api/clear` and `project` and `q` on `/api/requests`: `/api/requests?limit=1` returns every summary. Otherwise paths must match exactly; `/api/requests/` (trailing slash) is answered `404`. There is no paging.
 - These routes answer only requests whose `Host` is `localhost`, `127.0.0.1` or `[::1]` (with any port), or the address in `LLMSPY_HOST` when that is not `0.0.0.0`/`::`. A request with an `Origin` header must also come from the same origin as its `Host`. Anything else gets `403` with a plain-text message. curl, scripts and SDKs send no `Origin` and pass when they call `127.0.0.1`; a call from another container (`Host: llmspy` or `host.docker.internal`) gets `403`.
-- A record can be large (a coding agent's request is often around 1 MB), so `/api/requests` with 500 records can be hundreds of MB.
+- A record can be large (a coding agent's request is often around 1 MB), which is why the list routes send summaries: read only the records you need.
 
 ## Record shape
 
-Each record in `/api/requests` and `/events`:
+Each record from `/api/requests/<id>`:
 
 | Field | Meaning |
 |---|---|
@@ -99,6 +100,8 @@ Each record in `/api/requests` and `/events`:
 | `llm` | The call read as an LLM API call, below. Absent when the path is not one LLMSpy knows |
 
 A streamed response body is the raw SSE text. A body that can not be decompressed is replaced by `[LLMSpy could not decode this body: …]`.
+
+A summary, in `/api/requests` and `/events`, has the record's `id`, `timestamp`, `project`, `provider`, `host`, `method`, `path`, `timings`, `latency` and `error`, plus `response: {"status"}` and `llm: {"model","usage","error"}` when the record has them. It has no headers or bodies.
 
 ### `llm`
 
@@ -144,16 +147,21 @@ Only `2xx` responses are parsed. For a `4xx`/`5xx` call, `llm` has the request f
 The last call's prompt and reply, without `jq`:
 
 ```bash
-curl -s http://127.0.0.1:8080/api/requests | node -e "
-  const [r] = JSON.parse(require('fs').readFileSync(0, 'utf8'));
-  console.log(JSON.stringify({ status: r?.response?.status, error: r?.error, llm: r?.llm }, null, 2));"
+node -e "
+  const base = 'http://127.0.0.1:8080/api/requests';
+  fetch(base).then((res) => res.json()).then(async ([s]) => {
+    const r = s && (await (await fetch(base + '/' + s.id)).json());
+    console.log(JSON.stringify({ status: r?.response?.status, error: r?.error, llm: r?.llm }, null, 2));
+  });"
 ```
 
-With `jq`: `curl -s http://127.0.0.1:8080/api/requests | jq '.[0].llm | {model, system, messages, output, usage}'`.
+With `jq`: `id=$(curl -s http://127.0.0.1:8080/api/requests | jq -r '.[0].id'); curl -s "http://127.0.0.1:8080/api/requests/$id" | jq '.llm | {model, system, messages, output, usage}'`.
 
-Check what an app sends for one task: `POST /api/clear`, run the app, then read `/api/requests` (newest first, so reverse it for the order the calls were made in).
+Find the calls that mention something: `curl -s 'http://127.0.0.1:8080/api/requests?q=get_weather'`, then read each by `id`.
 
-Wait for a call: poll `GET /api/requests` until a record whose `timestamp` is after the moment you started has `timings.end`, or read `/events` and wait for such a record.
+Check what an app sends for one task: `POST /api/clear`, run the app, then read `/api/requests` (newest first, so reverse it for the order the calls were made in) and each record you need.
+
+Wait for a call: poll `GET /api/requests` until a summary whose `timestamp` is after the moment you started has `timings.end`, or read `/events` and wait for such a summary; then read the record.
 
 Without an API key: `npm run mock` starts mock LLM APIs (Anthropic Messages on `127.0.0.1:8001`, OpenAI Chat Completions on `127.0.0.1:8002`). Start LLMSpy with `LLMSPY_UPSTREAMS=llmock=http://127.0.0.1:8001,llmock-openai=http://127.0.0.1:8002`, then `node scripts/mock-traffic.mjs` sends one call of each kind (tool call, `max_tokens`, refusal, `429`, stream error, dropped stream). The README lists the prompt markers that pick each reply.
 

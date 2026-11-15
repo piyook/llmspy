@@ -476,6 +476,149 @@ describe('ProxyServer', () => {
 		events.destroy();
 	});
 
+	it('sends /events clients summaries, without headers or bodies', async () => {
+		const upstream = await startUpstream((req, res) => {
+			req.resume();
+			res.end('{"secret":"reply"}');
+		});
+		const { base, store } = await startProxy(upstream);
+		await readAll(
+			await request(`${base}/fake/v1/messages`, {
+				method: 'POST',
+				body: '{"model":"claude-test","messages":[]}',
+			}),
+		);
+		await vi.waitFor(() =>
+			expect(store.getRequests()[0]?.timings.end).toBeDefined(),
+		);
+
+		const events = await request(`${base}/events`);
+		const chunks: string[] = [];
+		events.on('data', (chunk: Buffer) => chunks.push(chunk.toString()));
+		await vi.waitFor(() => expect(chunks).toHaveLength(1));
+		events.destroy();
+
+		const replayed = JSON.parse(chunks[0].replace(/^data: /, ''));
+		expect(replayed).toMatchObject({
+			id: store.getRequests()[0].id,
+			response: { status: 200 },
+			llm: { model: 'claude-test' },
+		});
+		expect(replayed.headers).toBeUndefined();
+		expect(replayed.body).toBeUndefined();
+		expect(chunks[0]).not.toContain('secret');
+	});
+
+	describe('GET /api/requests', () => {
+		async function proxyWithThreeCalls() {
+			const upstream = await startUpstream((req, res) => {
+				req.resume();
+				res.end('{"reply":"Bonjour"}');
+			});
+			const { base, store } = await startProxy(upstream);
+			const send = async (path: string, body: string) =>
+				readAll(
+					await request(`${base}${path}`, { method: 'POST', body }),
+				);
+			await send('/fake/v1/messages', '{"say":"hello"}');
+			await send('/@my-app/fake/v1/messages', '{"say":"Hello there"}');
+			await send('/@my-app/fake/v1/messages', '{"say":"goodbye"}');
+			await vi.waitFor(() =>
+				expect(
+					store.getRequests().filter(({ timings }) => timings.end),
+				).toHaveLength(3),
+			);
+			const list = async (query: string) => {
+				const res = await request(`${base}/api/requests${query}`);
+				return {
+					status: res.statusCode,
+					body: (await readAll(res)).toString(),
+				};
+			};
+			return { store, list };
+		}
+
+		it('returns summaries of every record, newest first', async () => {
+			const { store, list } = await proxyWithThreeCalls();
+			const { status, body } = await list('');
+			expect(status).toBe(200);
+			const summaries = JSON.parse(body);
+			expect(summaries.map(({ id }: { id: string }) => id)).toEqual(
+				store.getRequests().map(({ id }) => id),
+			);
+			expect(summaries[0].body).toBeUndefined();
+			expect(summaries[0].headers).toBeUndefined();
+			expect(body).not.toContain('Bonjour');
+		});
+
+		it('keeps one project with ?project=', async () => {
+			const { list } = await proxyWithThreeCalls();
+			const summaries = JSON.parse((await list('?project=my-app')).body);
+			expect(summaries).toHaveLength(2);
+			expect(
+				summaries.every(
+					({ project }: { project: string }) => project === 'my-app',
+				),
+			).toBe(true);
+		});
+
+		it('searches both bodies with ?q=, ignoring case, and with ?project=', async () => {
+			const { store, list } = await proxyWithThreeCalls();
+			const ids = (body: string) =>
+				JSON.parse(body).map(({ id }: { id: string }) => id);
+			const byBody = (say: string) =>
+				store.getRequests().find(({ body }) => body.includes(say))?.id;
+
+			expect(ids((await list('?q=HELLO')).body)).toEqual([
+				byBody('Hello there'),
+				byBody('"hello"'),
+			]);
+			expect(ids((await list('?q=hello&project=my-app')).body)).toEqual([
+				byBody('Hello there'),
+			]);
+			expect(ids((await list('?q=bonjour')).body)).toHaveLength(3);
+			expect(ids((await list('?q=nowhere')).body)).toEqual([]);
+		});
+
+		it('answers 400 to a project name that cannot exist', async () => {
+			const { list } = await proxyWithThreeCalls();
+			expect((await list('?project=Not_Valid')).status).toBe(400);
+		});
+	});
+
+	it('returns one full record from /api/requests/<id>', async () => {
+		const upstream = await startUpstream((req, res) => {
+			req.resume();
+			res.end('{"reply":"Bonjour"}');
+		});
+		const { base, store } = await startProxy(upstream);
+		await readAll(
+			await request(`${base}/fake/v1/messages`, {
+				method: 'POST',
+				body: '{"say":"hello"}',
+			}),
+		);
+		await vi.waitFor(() =>
+			expect(store.getRequests()[0]?.timings.end).toBeDefined(),
+		);
+		const [captured] = store.getRequests();
+
+		const res = await request(`${base}/api/requests/${captured.id}`);
+		expect(res.statusCode).toBe(200);
+		expect(res.headers['content-type']).toBe('application/json');
+		expect(JSON.parse((await readAll(res)).toString())).toEqual(
+			JSON.parse(JSON.stringify(captured)),
+		);
+	});
+
+	it('answers 404 to reading a record it does not hold', async () => {
+		const { base } = await startProxy('http://127.0.0.1:1');
+
+		const res = await request(`${base}/api/requests/no-such-id`);
+		expect(res.statusCode).toBe(404);
+		expect((await readAll(res)).toString()).toMatch(/no captured call/);
+	});
+
 	it('ignores a query string on the UI routes', async () => {
 		const upstream = await startUpstream((req, res) => {
 			req.resume();
@@ -533,6 +676,7 @@ describe('ProxyServer', () => {
 
 	it.each([
 		['GET', '/api/requests'],
+		['GET', '/api/requests/some-id'],
 		['POST', '/api/clear'],
 		['DELETE', '/api/requests/some-id'],
 		['GET', '/events'],

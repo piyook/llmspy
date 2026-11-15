@@ -5,6 +5,7 @@ import { isAllowedUiRequest } from './guard.js';
 import { exchangeParser } from './parsers/index.js';
 import { serveStatic } from './static.js';
 import type { RequestStore } from './store.js';
+import { matchesSearch, toSummary } from './summary.js';
 import type { CapturedRequest, ProxyConfig } from './types.js';
 import { isProjectName, listUpstreams, resolveRoute } from './upstreams.js';
 
@@ -16,8 +17,8 @@ function isUiRoute(path: string): boolean {
 	return path === '/ping' || path === '/events' || path.startsWith('/api/');
 }
 
-/** `DELETE /api/requests/<id>`: ids are UUIDs, so no decoding is needed. */
-const DELETE_PATH = /^\/api\/requests\/([\w-]+)$/;
+/** `/api/requests/<id>`: ids are UUIDs, so no decoding is needed. */
+const RECORD_PATH = /^\/api\/requests\/([\w-]+)$/;
 
 /**
  * One HTTP server for both jobs: `/<upstream>/...` is forwarded and captured,
@@ -42,8 +43,9 @@ export class ProxyServer {
 		res: http.ServerResponse,
 	): void {
 		const url = req.url ?? '/';
-		// The UI routes take no parameters, so a query string is ignored. The
-		// full URL still goes to `resolveRoute`, so upstreams get their query.
+		// The UI routes match on the path alone; the few that take parameters
+		// read the query themselves. The full URL still goes to `resolveRoute`,
+		// so upstreams get their query.
 		const path = url.split('?')[0];
 
 		if (
@@ -64,7 +66,7 @@ export class ProxyServer {
 			return;
 		}
 		if (path === '/api/requests') {
-			this.handleGetRequests(res);
+			this.handleGetRequests(res, url);
 			return;
 		}
 		if (path === '/api/upstreams') {
@@ -76,9 +78,13 @@ export class ProxyServer {
 			this.handleClearRequests(res, url);
 			return;
 		}
-		const deleted = DELETE_PATH.exec(path);
-		if (deleted && req.method === 'DELETE') {
-			this.handleDeleteRequest(res, deleted[1]);
+		const record = RECORD_PATH.exec(path);
+		if (record && req.method === 'GET') {
+			this.handleGetRequest(res, record[1]);
+			return;
+		}
+		if (record && req.method === 'DELETE') {
+			this.handleDeleteRequest(res, record[1]);
 			return;
 		}
 
@@ -89,7 +95,7 @@ export class ProxyServer {
 		}
 
 		const parse = exchangeParser();
-		const record = (captured: CapturedRequest): void => {
+		const parseAndPublish = (captured: CapturedRequest): void => {
 			const llm = parse(captured);
 			if (llm) captured.llm = llm;
 			this.publish(captured);
@@ -99,9 +105,9 @@ export class ProxyServer {
 				// When the response headers arrive the reply body is still
 				// empty, and parsing it would report an error.
 				if (captured.response?.body === '') this.publish(captured);
-				else record(captured);
+				else parseAndPublish(captured);
 			},
-			onDone: record,
+			onDone: parseAndPublish,
 		});
 	}
 
@@ -126,8 +132,9 @@ export class ProxyServer {
 		);
 	}
 
+	/** Clients are sent the summary; they fetch the full record when they need it. */
 	private broadcast(captured: CapturedRequest): void {
-		this.sendToClients(`data: ${JSON.stringify(captured)}\n\n`);
+		this.sendToClients(`data: ${JSON.stringify(toSummary(captured))}\n\n`);
 	}
 
 	private sendToClients(event: string): void {
@@ -156,13 +163,50 @@ export class ProxyServer {
 		});
 
 		for (const captured of this.store.getRequests()) {
-			res.write(`data: ${JSON.stringify(captured)}\n\n`);
+			res.write(`data: ${JSON.stringify(toSummary(captured))}\n\n`);
 		}
 	}
 
-	private handleGetRequests(res: http.ServerResponse): void {
+	/**
+	 * `GET /api/requests`: summaries, newest first. `?project=<name>` keeps
+	 * one project's; `?q=<text>` keeps those whose host, path or either body
+	 * holds the text, ignoring case.
+	 */
+	private handleGetRequests(res: http.ServerResponse, url: string): void {
+		const query = new URLSearchParams(url.split('?')[1]);
+		const project = query.get('project') ?? undefined;
+		if (project !== undefined && !isProjectName(project)) {
+			res.writeHead(400, { 'content-type': 'text/plain; charset=utf-8' });
+			res.end(`LLMSpy: "${project}" is not a project name.`);
+			return;
+		}
+		const search = query.get('q') ?? '';
+		const summaries = this.store
+			.getRequests()
+			.filter(
+				(captured) =>
+					(project === undefined || captured.project === project) &&
+					matchesSearch(captured, search),
+			)
+			.map(toSummary);
 		res.writeHead(200, { 'Content-Type': 'application/json' });
-		res.end(JSON.stringify(this.store.getRequests()));
+		res.end(JSON.stringify(summaries));
+	}
+
+	/** `GET /api/requests/<id>`: the full record. */
+	private handleGetRequest(res: http.ServerResponse, id: string): void {
+		const captured = this.store.get(id);
+		if (!captured) {
+			this.noSuchCall(res, id);
+			return;
+		}
+		res.writeHead(200, { 'Content-Type': 'application/json' });
+		res.end(JSON.stringify(captured));
+	}
+
+	private noSuchCall(res: http.ServerResponse, id: string): void {
+		res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
+		res.end(`LLMSpy: no captured call ${id}.`);
 	}
 
 	private handlePing(res: http.ServerResponse): void {
@@ -202,8 +246,7 @@ export class ProxyServer {
 
 	private handleDeleteRequest(res: http.ServerResponse, id: string): void {
 		if (!this.store.remove(id)) {
-			res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
-			res.end(`LLMSpy: no captured call ${id}.`);
+			this.noSuchCall(res, id);
 			return;
 		}
 		// Named like `clear`, so every tab drops the row.

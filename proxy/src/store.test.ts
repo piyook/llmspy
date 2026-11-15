@@ -41,6 +41,14 @@ describe('RequestStore', () => {
 		expect(store.getRequests()[1].path).toBe('/v1/messages?done');
 	});
 
+	it('gets one request by id', () => {
+		const store = new RequestStore();
+		store.addRequest(call('a'));
+		store.addRequest(call('b', '/v1/messages?b'));
+		expect(store.get('b')?.path).toBe('/v1/messages?b');
+		expect(store.get('c')).toBeUndefined();
+	});
+
 	it('removes one request by id, and says whether it was there', () => {
 		const store = new RequestStore();
 		store.addRequest(call('a'));
