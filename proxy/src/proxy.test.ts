@@ -606,6 +606,37 @@ describe('ProxyServer', () => {
 			expect(records[0].response.body).toBe('{"reply":"Bonjour"}');
 		});
 
+		it('keeps the failed calls with ?failed=1, and one status with ?status=', async () => {
+			const upstream = await startUpstream((req, res) => {
+				req.resume();
+				res.statusCode = req.url?.includes('limited') ? 429 : 200;
+				res.end('{}');
+			});
+			const { base, store } = await startProxy(upstream);
+			for (const path of ['/fake/ok', '/fake/limited', '/fake/ok']) {
+				await readAll(
+					await request(`${base}${path}`, { method: 'POST' }),
+				);
+			}
+			await vi.waitFor(() =>
+				expect(
+					store.getRequests().filter(({ timings }) => timings.end),
+				).toHaveLength(3),
+			);
+			const paths = async (query: string) =>
+				JSON.parse(
+					(
+						await readAll(
+							await request(`${base}/api/requests${query}`),
+						)
+					).toString(),
+				).map(({ path }: { path: string }) => path);
+
+			expect(await paths('?failed=1')).toEqual(['/limited']);
+			expect(await paths('?status=4xx')).toEqual(['/limited']);
+			expect(await paths('?status=200&limit=1')).toEqual(['/ok']);
+		});
+
 		it('answers 400 to a parameter it can not read', async () => {
 			const { list } = await proxyWithThreeCalls();
 			for (const query of [
@@ -613,6 +644,9 @@ describe('ProxyServer', () => {
 				'?since=yesterday',
 				'?limit=0',
 				'?full=true',
+				'?status=4x',
+				'?failed=0',
+				'?model=',
 			]) {
 				const { status, body } = await list(query);
 				expect(status).toBe(400);

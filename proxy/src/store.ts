@@ -1,5 +1,10 @@
 import { DatabaseSync } from 'node:sqlite';
-import { matchesSearch, toSummary } from './summary.js';
+import {
+	type CallFilters,
+	matchesFilters,
+	matchesSearch,
+	toSummary,
+} from './summary.js';
 import type { CallSummary, CapturedRequest } from './types.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -29,7 +34,7 @@ export function parseRetentionDays(value: string | undefined): number {
 }
 
 /** Which calls to list. Every field is optional; together they all apply. */
-export interface CallQuery {
+export interface CallQuery extends CallFilters {
 	/** Only this project's calls. */
 	project?: string;
 	/** Only the calls `matchesSearch` keeps for this text. */
@@ -115,6 +120,7 @@ export class RequestStore {
 		search = '',
 		since,
 		limit,
+		...filters
 	}: CallQuery = {}): CallSummary[] {
 		const pattern = likePattern(search);
 		// A running call's stored copy is behind, so it is checked in memory.
@@ -138,7 +144,7 @@ export class RequestStore {
 
 		const summaries: CallSummary[] = [];
 		for (const row of rows) {
-			// Search filters after the query, so the limit is counted here.
+			// Search and filters apply after the query, so the limit is counted here.
 			if (summaries.length === limit) break;
 			const live = this.running.get(row.id)?.captured;
 			if (search) {
@@ -146,11 +152,10 @@ export class RequestStore {
 					live ?? (JSON.parse(row.record ?? '') as CapturedRequest);
 				if (!matchesSearch(captured, search)) continue;
 			}
-			summaries.push(
-				live
-					? toSummary(live)
-					: (JSON.parse(row.summary) as CallSummary),
-			);
+			const summary = live
+				? toSummary(live)
+				: (JSON.parse(row.summary) as CallSummary);
+			if (matchesFilters(summary, filters)) summaries.push(summary);
 		}
 		return summaries;
 	}

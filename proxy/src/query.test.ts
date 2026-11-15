@@ -18,15 +18,46 @@ describe('parseListRequest', () => {
 
 	it('reads every parameter', () => {
 		expect(
-			parse('project=my-app&q=hello&since=1000&limit=5&full=1'),
+			parse(
+				'project=my-app&q=hello&since=1000&limit=5&full=1&model=Sonnet&status=429&failed=1',
+			),
 		).toEqual({
 			query: {
 				project: 'my-app',
 				search: 'hello',
 				since: 1000,
 				limit: 5,
+				model: 'Sonnet',
+				status: '429',
+				failed: true,
 			},
 			full: true,
+		});
+	});
+
+	it('takes a status class', () => {
+		expect(parse('status=5xx')).toMatchObject({ query: { status: '5xx' } });
+	});
+
+	it('refuses a status that is not a code or a class', () => {
+		for (const status of ['', '42', '4299', '600', '099', 'x5x', '5XX']) {
+			expect(parse(`status=${status}`)).toEqual({
+				error: expect.stringContaining('status must be'),
+			});
+		}
+	});
+
+	it('refuses a failed that is not 1', () => {
+		for (const failed of ['', '0', 'true']) {
+			expect(parse(`failed=${failed}`)).toEqual({
+				error: expect.stringContaining('failed must be 1'),
+			});
+		}
+	});
+
+	it('refuses an empty model', () => {
+		expect(parse('model=')).toEqual({
+			error: expect.stringContaining('model must not be empty'),
 		});
 	});
 
