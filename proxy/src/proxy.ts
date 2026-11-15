@@ -5,7 +5,7 @@ import { isAllowedUiRequest } from './guard.js';
 import { exchangeParser } from './parsers/index.js';
 import { serveStatic } from './static.js';
 import type { RequestStore } from './store.js';
-import { matchesSearch, toSummary } from './summary.js';
+import { toSummary } from './summary.js';
 import type { CapturedRequest, ProxyConfig } from './types.js';
 import { isProjectName, listUpstreams, resolveRoute } from './upstreams.js';
 
@@ -162,8 +162,8 @@ export class ProxyServer {
 			this.sseClients.delete(res);
 		});
 
-		for (const captured of this.store.getRequests()) {
-			res.write(`data: ${JSON.stringify(toSummary(captured))}\n\n`);
+		for (const summary of this.store.summaries()) {
+			res.write(`data: ${JSON.stringify(summary)}\n\n`);
 		}
 	}
 
@@ -180,15 +180,7 @@ export class ProxyServer {
 			res.end(`LLMSpy: "${project}" is not a project name.`);
 			return;
 		}
-		const search = query.get('q') ?? '';
-		const summaries = this.store
-			.getRequests()
-			.filter(
-				(captured) =>
-					(project === undefined || captured.project === project) &&
-					matchesSearch(captured, search),
-			)
-			.map(toSummary);
+		const summaries = this.store.summaries(project, query.get('q') ?? '');
 		res.writeHead(200, { 'Content-Type': 'application/json' });
 		res.end(JSON.stringify(summaries));
 	}

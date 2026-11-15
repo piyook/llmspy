@@ -1,29 +1,36 @@
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
+import { homedir } from 'node:os';
 import * as path from 'node:path';
 import { writePidFile } from './pidfile.js';
 import { ProxyServer } from './proxy.js';
-import { RequestStore } from './store.js';
+import { parseRetentionDays, RequestStore } from './store.js';
 import type { ProxyConfig } from './types.js';
 import { parseUpstreams } from './upstreams.js';
 
 // Built layout: proxy/dist/index.js next to ui/dist/ (also in the image).
 const uiDir = path.resolve(import.meta.dirname, '../../ui/dist');
+const dbFile = path.join(homedir(), '.llmspy', 'llmspy.db');
+const HOUR_MS = 60 * 60 * 1000;
 
 let config: ProxyConfig;
+let store: RequestStore;
 try {
 	config = {
 		port: Number.parseInt(process.env.PROXY_PORT ?? '8080', 10),
 		host: process.env.LLMSPY_HOST ?? '127.0.0.1',
 		upstreams: parseUpstreams(process.env.LLMSPY_UPSTREAMS),
-		maxRequests: 500,
 		uiDir,
 	};
+	const retentionDays = parseRetentionDays(process.env.LLMSPY_RETENTION_DAYS);
+	mkdirSync(path.dirname(dbFile), { recursive: true });
+	store = new RequestStore({ path: dbFile, retentionDays });
 } catch (error) {
 	console.error((error as Error).message);
 	process.exit(1);
 }
 
-const store = new RequestStore(config.maxRequests);
+store.prune();
+setInterval(() => store.prune(), HOUR_MS).unref();
 const proxy = new ProxyServer(config, store);
 
 async function start(): Promise<void> {
@@ -68,6 +75,7 @@ async function start(): Promise<void> {
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
 	process.on(signal, async () => {
 		await proxy.stop();
+		store.close();
 		process.exit(0);
 	});
 }

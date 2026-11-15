@@ -76,7 +76,6 @@ export interface ProxyConfig {
 	host: string;
 	/** Path prefix name -> upstream base URL. */
 	upstreams: Map<string, URL>;
-	maxRequests: number;
 	/** Folder of the built UI (`ui/dist`), served on the same port. */
 	uiDir?: string;
 }

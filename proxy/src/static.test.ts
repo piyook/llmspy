@@ -26,10 +26,9 @@ beforeAll(async () => {
 			port: 0,
 			host: '127.0.0.1',
 			upstreams: new Map([['fake', new URL('http://127.0.0.1:1')]]),
-			maxRequests: 10,
 			uiDir,
 		},
-		new RequestStore(10),
+		new RequestStore(),
 	);
 	const port = await proxy.start();
 	base = `http://127.0.0.1:${port}`;
