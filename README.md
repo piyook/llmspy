@@ -8,7 +8,7 @@ A lightweight local developer tool that shows LLM API traffic in real time, with
 - **Compare**: diff a call against the one before it, or any other, to see what an agent changed between turns
 - **Projects**: tag each app's base URL to give its calls their own tab
 - **Reads three formats**: Anthropic Messages, OpenAI Chat Completions and OpenAI Responses, streamed or not
-- **Kept across restarts**: the last 7 days of calls, in one file on your machine, listed by day with older days folded away, and today's narrowed to the last 5 to 90 minutes in one click
+- **Kept across restarts**: the last 7 days of calls, in one file on your machine, listed by day with older days folded away, today's narrowed to the last 5 to 90 minutes in one click, and the failed ones in another
 - **Agent friendly**: coding agents and scripts can list, search and read the captured calls as JSON, or one call as Markdown, and wait for a running call to end, from the same port; [llms.txt](llms.txt) tells them how
 - **Lightweight**: one command to start, one base URL to set in your app; no certificates or accounts
 
@@ -43,6 +43,10 @@ Every call appears in the list on the left as soon as it is sent, newest first, 
 The list is grouped by day, with older days folded away. The chips under Today show only its calls from the last 5 to 90 minutes, such as one run of an agent, and its heading counts how many are shown.
 
 <img src="docs/screenshots/days.png" width="300" alt="The call list narrowed to the last 15 minutes: Today shows 3 of 15 calls, with Yesterday and Thu 12 Nov folded below">
+
+When a project has calls that went wrong, a red **Failed** chip above the list counts them; press it to see only those, on every day. A call has failed when the upstream could not be reached or its reply broke off, when its status is 400 or above, or when the provider sent an error inside the reply. Agents get the same calls from `GET /api/requests?failed=1`.
+
+<img src="docs/screenshots/failed.png" width="300" alt="The Failed chip pressed: the list shows only the failed calls, two 429s, two errors in the stream and two dropped streams">
 
 Select a call to look at it three ways.
 
@@ -181,7 +185,7 @@ The file holds whole prompts and replies (API keys are masked), so treat it like
 
 ## How it works
 
-- `proxy/`: one Node HTTP server. `/<prefix>/...` (or `/@<project>/<prefix>/...`) is forwarded to the upstream with the bytes unchanged, chunk by chunk, while a copy of each body is kept, decompressed (gzip, deflate, br, zstd) and decoded for display. `/events` (Server-Sent Events of call summaries), `/api/requests` (summaries, with `?project=`, `?q=` search, `?since=`, `?limit=` and `?full=1` for full records), `GET`/`DELETE /api/requests/<id>` (one full record), `/api/requests/<id>/conversation` (the call as Markdown; both reads take `?wait=<seconds>` to answer once a running call ends), `/api/upstreams` (each prefix and where it forwards to) and `/api/clear` serve the UI, and any other path is a file from the built UI (`ui/dist`). Calls are stored with `node:sqlite`; a running call is held in memory and written when it starts, when its response headers arrive and when it ends.
+- `proxy/`: one Node HTTP server. `/<prefix>/...` (or `/@<project>/<prefix>/...`) is forwarded to the upstream with the bytes unchanged, chunk by chunk, while a copy of each body is kept, decompressed (gzip, deflate, br, zstd) and decoded for display. `/events` (Server-Sent Events of call summaries), `/api/requests` (summaries, with `?project=`, `?q=` search, `?since=`, `?model=`, `?status=`, `?failed=1`, `?limit=` and `?full=1` for full records), `GET`/`DELETE /api/requests/<id>` (one full record), `/api/requests/<id>/conversation` (the call as Markdown; both reads take `?wait=<seconds>` to answer once a running call ends), `/api/upstreams` (each prefix and where it forwards to) and `/api/clear` serve the UI, and any other path is a file from the built UI (`ui/dist`). Calls are stored with `node:sqlite`; a running call is held in memory and written when it starts, when its response headers arrive and when it ends.
 - `ui/`: Svelte and Vite.
 
 ## Development

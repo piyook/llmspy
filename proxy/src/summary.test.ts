@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { matchesSearch, toSummary } from './summary.js';
-import type { CapturedRequest } from './types.js';
+import { isFailed } from './failed.js';
+import { matchesFilters, matchesSearch, toSummary } from './summary.js';
+import type { CallSummary, CapturedRequest } from './types.js';
 
 const finished: CapturedRequest = {
 	id: 'a',
@@ -79,6 +80,73 @@ describe('toSummary', () => {
 			type: 'overloaded_error',
 			message: 'Overloaded',
 		});
+	});
+});
+
+describe('isFailed', () => {
+	const ok = toSummary(finished);
+
+	it('passes a call that went well, or is still waiting', () => {
+		expect(isFailed(ok)).toBe(false);
+		expect(isFailed({ ...ok, response: undefined })).toBe(false);
+		expect(isFailed({ ...ok, response: { status: 399 } })).toBe(false);
+	});
+
+	it.each<[string, Partial<CallSummary>]>([
+		['the capture has an error', { error: 'stream broke off' }],
+		['the status is 400', { response: { status: 400 } }],
+		['the status is 503', { response: { status: 503 } }],
+		[
+			'the provider sent an error in the reply',
+			{
+				llm: {
+					error: { type: 'overloaded_error', message: 'Overloaded' },
+				},
+			},
+		],
+	])('fails a call when %s', (_why, change) => {
+		expect(isFailed({ ...ok, ...change })).toBe(true);
+	});
+});
+
+describe('matchesFilters', () => {
+	const ok = toSummary(finished);
+	const limited: CallSummary = { ...ok, response: { status: 429 } };
+
+	it('matches everything when no filter is given', () => {
+		expect(matchesFilters(ok, {})).toBe(true);
+	});
+
+	it('matches part of the model name, ignoring case', () => {
+		expect(matchesFilters(ok, { model: 'TEST' })).toBe(true);
+		expect(matchesFilters(ok, { model: 'gpt' })).toBe(false);
+		expect(
+			matchesFilters({ ...ok, llm: undefined }, { model: 'test' }),
+		).toBe(false);
+	});
+
+	it('matches a status code or a class', () => {
+		expect(matchesFilters(limited, { status: '429' })).toBe(true);
+		expect(matchesFilters(limited, { status: '4xx' })).toBe(true);
+		expect(matchesFilters(limited, { status: '428' })).toBe(false);
+		expect(matchesFilters(limited, { status: '5xx' })).toBe(false);
+		expect(
+			matchesFilters({ ...ok, response: undefined }, { status: '2xx' }),
+		).toBe(false);
+	});
+
+	it('keeps only failed calls when asked', () => {
+		expect(matchesFilters(limited, { failed: true })).toBe(true);
+		expect(matchesFilters(ok, { failed: true })).toBe(false);
+	});
+
+	it('needs every filter given to match', () => {
+		expect(matchesFilters(limited, { model: 'test', status: '429' })).toBe(
+			true,
+		);
+		expect(matchesFilters(limited, { model: 'gpt', status: '429' })).toBe(
+			false,
+		);
 	});
 });
 

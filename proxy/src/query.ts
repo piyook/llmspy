@@ -1,4 +1,5 @@
 import type { CallQuery } from './store.js';
+import type { CallFilters } from './summary.js';
 import { isProjectName } from './upstreams.js';
 
 /** What `GET /api/requests` was asked for, or why it can not be answered. */
@@ -8,9 +9,9 @@ export type ListRequest =
 
 /**
  * Reads the parameters of `GET /api/requests`: `project`, `q`, `since` (an
- * ISO time or epoch milliseconds), `limit` (a positive whole number) and
- * `full=1`. Anything it can not read is an error, so a typo never quietly
- * lists every call.
+ * ISO time or epoch milliseconds), `limit` (a positive whole number),
+ * `full=1`, and the filters `model`, `status` and `failed=1`. Anything it
+ * can not read is an error, so a typo never quietly lists every call.
  */
 export function parseListRequest(params: URLSearchParams): ListRequest {
 	const project = params.get('project') ?? undefined;
@@ -38,15 +39,55 @@ export function parseListRequest(params: URLSearchParams): ListRequest {
 		return { error: `full must be 1, not "${fullParam}".` };
 	}
 
+	const filters = parseFilters(params);
+	if ('error' in filters) return filters;
+
 	return {
 		query: {
 			project,
 			search: params.get('q') ?? '',
 			since,
 			limit: limitParam === null ? undefined : Number(limitParam),
+			...filters,
 		},
 		full: fullParam === '1',
 	};
+}
+
+/**
+ * Reads `model` (any text), `status` (`429`, or a class such as `5xx`) and
+ * `failed=1`. Only the filters given are set.
+ */
+function parseFilters(
+	params: URLSearchParams,
+): CallFilters | { error: string } {
+	const filters: CallFilters = {};
+
+	const model = params.get('model');
+	if (model !== null) {
+		if (!model) return { error: 'model must not be empty.' };
+		filters.model = model;
+	}
+
+	const status = params.get('status');
+	if (status !== null) {
+		if (!/^[1-5](\d\d|xx)$/.test(status)) {
+			return {
+				error: `status must be a status code (429) or a class (5xx), not "${status}".`,
+			};
+		}
+		filters.status = status;
+	}
+
+	const failed = params.get('failed');
+	if (failed !== null) {
+		if (failed !== '1') {
+			return { error: `failed must be 1, not "${failed}".` };
+		}
+		filters.failed = true;
+	}
+
+	return filters;
 }
 
 /** The longest `?wait=` takes, in seconds. */

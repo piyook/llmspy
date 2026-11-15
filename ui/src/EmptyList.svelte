@@ -4,11 +4,14 @@
 let {
 	project,
 	search,
+	failedOnly,
 	elsewhere,
 	onchoose,
 }: {
 	project: string;
 	search: string;
+	/** Whether only failed calls are shown. */
+	failedOnly: boolean;
 	/** Each other project with matches, and how many. */
 	elsewhere: [string, number][];
 	onchoose: (project: string) => void;
@@ -16,7 +19,9 @@ let {
 </script>
 
 <div class="no-requests">
-  {#if !search}
+  {#if failedOnly && !search}
+    No failed calls in {project}.
+  {:else if !search}
     No requests captured yet. Point an app at LLMSpy, e.g. ANTHROPIC_BASE_URL=http://127.0.0.1:8080/anthropic
   {:else if elsewhere.length === 0}
     No requests match your search

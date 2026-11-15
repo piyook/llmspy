@@ -172,6 +172,22 @@ describe('RequestStore', () => {
 		).toEqual(['b']);
 	});
 
+	it('filters before counting the limit, running calls too', () => {
+		const store = open();
+		const failing = (id: string, start: number, running = false) => ({
+			...call(id, { start, running }),
+			response: { status: 500, headers: {}, body: '' },
+		});
+		store.addRequest(failing('a', 1));
+		store.addRequest(failing('b', 2));
+		store.addRequest(call('c', { start: 3 }));
+		store.addRequest(failing('d', 4, true));
+		expect(
+			store.summaries({ failed: true, limit: 2 }).map(({ id }) => id),
+		).toEqual(['d', 'b']);
+		expect(store.summaries({ status: '2xx' })).toEqual([]);
+	});
+
 	it('gives the calls a query keeps in full', () => {
 		const store = open();
 		store.addRequest(call('a', { start: 1, body: 'first' }));
