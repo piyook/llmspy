@@ -14,7 +14,7 @@
 
 ## Run and stop
 
-From the repository root (`npm install` once first, except for Docker):
+From the repository root (`npm install` once first, except for Docker). Running without Docker needs Node.js 26 or later (`engines` in `package.json`); the Docker image brings its own.
 
 | How | Start | Stop |
 |---|---|---|
