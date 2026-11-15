@@ -17,6 +17,7 @@ npm run typecheck
 # The tests go before fallow, which scores complexity from the coverage they
 # write. fallow fails only on findings this branch adds.
 npm run test:coverage
+npm run test:e2e
 npm run fallow:audit
 npm run build
 npm audit --omit=dev

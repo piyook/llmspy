@@ -174,6 +174,7 @@ This starts the proxy on `http://127.0.0.1:8080` and the web UI, with live reloa
 | `npm run stop:docker`   | Stop and remove the Docker container                                           |
 | `npm test`              | Run the tests                                                                  |
 | `npm run test:coverage` | Run all the tests in one go and write `coverage/`                              |
+| `npm run test:e2e`      | Run the proxy in front of a real [llmock](https://www.npmjs.com/package/llmock) (also run before a push and on pull requests) |
 | `npm run lint`          | Biome lint and format check                                                    |
 | `npm run typecheck`     | `tsc` for the proxy, `svelte-check` for the UI                                 |
 | `npm run fallow`        | [fallow](https://fallow.tools) report on the whole codebase (after `test:coverage`) |

@@ -51,6 +51,19 @@ jobs:
             - run: npm ci
             - run: npm test
 
+    # The proxy in front of a real llmock, which it starts in-process
+    e2e:
+        if: github.event_name == 'pull_request'
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v7
+            - uses: actions/setup-node@v7
+              with:
+                  node-version-file: .nvmrc
+                  cache: npm
+            - run: npm ci
+            - run: npm run test:e2e
+
     build:
         runs-on: ubuntu-latest
         steps:
