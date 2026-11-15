@@ -802,6 +802,50 @@ body {
 	white-space: nowrap;
 }
 
+/* Calls, Failed, Tokens and Latency of the calls shown, under the tabs. */
+.stats-cards {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+	gap: 0.75rem;
+	padding-top: 0.75rem;
+}
+
+.stats-card {
+	display: flex;
+	flex-direction: column;
+	gap: 0.15rem;
+	padding: 0.5rem 0.75rem;
+	border: 1px solid var(--border);
+	border-radius: 6px;
+	background: var(--surface);
+}
+
+.stats-label {
+	font-size: 0.75rem;
+	color: var(--text-muted);
+}
+
+.stats-value {
+	font-size: 1.1rem;
+	font-weight: 600;
+	color: var(--text-strong);
+	font-variant-numeric: tabular-nums;
+}
+
+.stats-detail {
+	font-size: 0.8rem;
+	color: var(--text-faint);
+	font-variant-numeric: tabular-nums;
+}
+
+.stats-card.alert {
+	border-color: var(--danger);
+}
+
+.stats-card.alert .stats-value {
+	color: var(--danger);
+}
+
 /* New calls in a project you are not looking at. */
 .tab-badge {
 	display: inline-block;

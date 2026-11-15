@@ -1,6 +1,8 @@
 <script lang="ts">
 import { onMount } from 'svelte';
 import { SvelteMap } from 'svelte/reactivity';
+// The proxy's own counts, so the cards and `GET /api/stats` agree.
+import { toStats } from '../../proxy/src/stats.js';
 import DayHeader from './DayHeader.svelte';
 import Detail from './Detail.svelte';
 import EmptyList from './EmptyList.svelte';
@@ -26,10 +28,12 @@ import {
 	isShown,
 	newestFirst,
 } from './lib/requests.js';
+import { statsCards } from './lib/stats.js';
 import type { CallSummary, Tab } from './lib/types.js';
 import ProjectTabs from './ProjectTabs.svelte';
 import RecentChips from './RecentChips.svelte';
 import RequestRow from './RequestRow.svelte';
+import StatsCards from './StatsCards.svelte';
 import Toolbar from './Toolbar.svelte';
 
 /** How long to wait before reopening `/events` after the browser gives up on it. */
@@ -227,6 +231,9 @@ const shownCalls = (group: DayGroup) =>
 	narrowing && recent !== undefined && group.key === today
 		? withinLast(group.calls, recent, recentNow)
 		: group.calls;
+// Every call in the list, in closed days too, for the cards above it.
+const listed = $derived(groups.flatMap(shownCalls));
+const cards = $derived(statsCards(toStats(listed)));
 
 onMount(() => {
 	let events: EventSource | undefined;
@@ -327,6 +334,7 @@ async function clearRequests() {
   matches={search ? matchCounts : undefined}
   onchoose={chooseProject}
 />
+<StatsCards shown={listed.length > 0} {cards} />
 
 <div class="panes">
   <section class="list" class:picking aria-label="Captured requests">
