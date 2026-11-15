@@ -19,6 +19,7 @@ function request(id: string, provider: string, start: number): CapturedRequest {
 	return {
 		id,
 		timestamp: new Date(start).toISOString(),
+		project: 'general',
 		provider,
 		host: 'api.example.com',
 		method: 'POST',

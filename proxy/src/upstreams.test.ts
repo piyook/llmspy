@@ -69,9 +69,33 @@ describe('resolveRoute', () => {
 			upstreams,
 		);
 		expect(route?.provider).toBe('anthropic');
+		expect(route?.project).toBe('general');
 		expect(route?.target.href).toBe(
 			'https://api.anthropic.com/v1/messages?beta=true',
 		);
+	});
+
+	it('takes a project from /@<project> in front and does not forward it', () => {
+		const route = resolveRoute(
+			'/@my-app2/anthropic/v1/messages?x=1',
+			upstreams,
+		);
+		expect(route?.project).toBe('my-app2');
+		expect(route?.provider).toBe('anthropic');
+		expect(route?.target.href).toBe(
+			'https://api.anthropic.com/v1/messages?x=1',
+		);
+	});
+
+	it.each([
+		['an empty project', '/@/anthropic/v1/messages'],
+		['a project with capitals', '/@MyApp/anthropic/v1/messages'],
+		['a project with an underscore', '/@my_app/anthropic/v1/messages'],
+		['a project and no upstream', '/@my-app'],
+		['a project and an unknown upstream', '/@my-app/unknown/v1'],
+		['two projects', '/@a/@b/anthropic/v1/messages'],
+	])('matches nothing for %s', (_label, url) => {
+		expect(resolveRoute(url, upstreams)).toBeUndefined();
 	});
 
 	it('appends to an upstream base path', () => {

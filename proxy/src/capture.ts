@@ -4,6 +4,7 @@ import * as https from 'node:https';
 import * as zlib from 'node:zlib';
 import { isEventStream } from './parsers/sse.js';
 import type { CapturedRequest, Headers } from './types.js';
+import type { Route } from './upstreams.js';
 
 /** Headers that apply to one connection and must not be forwarded (RFC 9110 7.6.1). */
 const HOP_BY_HOP = new Set([
@@ -150,14 +151,14 @@ export interface CaptureHandlers {
 export function forwardAndCapture(
 	req: http.IncomingMessage,
 	res: http.ServerResponse,
-	provider: string,
-	target: URL,
+	{ project, provider, target }: Route,
 	{ onUpdate, onDone }: CaptureHandlers,
 ): void {
 	const start = Date.now();
 	const captured: CapturedRequest = {
 		id: randomUUID(),
 		timestamp: new Date(start).toISOString(),
+		project,
 		provider,
 		host: target.host,
 		method: req.method ?? 'GET',

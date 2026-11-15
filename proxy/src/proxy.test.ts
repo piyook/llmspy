@@ -127,6 +127,7 @@ describe('ProxyServer', () => {
 
 		const captured = await onlyCaptured(store);
 		expect(captured).toMatchObject({
+			project: 'general',
 			provider: 'fake',
 			host: new URL(upstream).host,
 			method: 'POST',
@@ -359,6 +360,76 @@ describe('ProxyServer', () => {
 			);
 		}
 		for (const client of clients) client.destroy();
+	});
+
+	it('records the project in front of the upstream and does not forward it', async () => {
+		let urlSeenByUpstream = '';
+		const upstream = await startUpstream((req, res) => {
+			urlSeenByUpstream = req.url ?? '';
+			req.resume();
+			res.end('{}');
+		});
+		const { base, store } = await startProxy(upstream);
+
+		await readAll(await request(`${base}/@my-app/fake/v1/messages?x=1`));
+
+		expect(urlSeenByUpstream).toBe('/v1/messages?x=1');
+		expect(await onlyCaptured(store)).toMatchObject({
+			project: 'my-app',
+			provider: 'fake',
+			path: '/v1/messages?x=1',
+		});
+	});
+
+	it('clears one project and tells every /events client which', async () => {
+		const upstream = await startUpstream((req, res) => {
+			req.resume();
+			res.end('{}');
+		});
+		const { base, store } = await startProxy(upstream);
+		await readAll(await request(`${base}/@my-app/fake/v1/messages`));
+		await readAll(await request(`${base}/fake/v1/messages`));
+		await vi.waitFor(() => expect(store.getRequests()).toHaveLength(2));
+
+		const events = await request(`${base}/events`);
+		const chunks: string[] = [];
+		events.on('data', (chunk: Buffer) => chunks.push(chunk.toString()));
+		// The two replayed records arrive first, maybe in one chunk.
+		const replay = (): number => chunks.join('').split('\n\n').length - 1;
+		await vi.waitFor(() => expect(replay()).toBe(2));
+		const replayed = chunks.join('').length;
+
+		const clear = await request(`${base}/api/clear?project=my-app`, {
+			method: 'POST',
+		});
+		clear.resume();
+		expect(clear.statusCode).toBe(200);
+		expect(store.getRequests().map(({ project }) => project)).toEqual([
+			'general',
+		]);
+		await vi.waitFor(() =>
+			expect(chunks.join('').slice(replayed)).toBe(
+				'event: clear\ndata: {"project":"my-app"}\n\n',
+			),
+		);
+		events.destroy();
+	});
+
+	it('answers 400 to clearing a project name that cannot exist', async () => {
+		const upstream = await startUpstream((req, res) => {
+			req.resume();
+			res.end('{}');
+		});
+		const { base, store } = await startProxy(upstream);
+		await readAll(await request(`${base}/fake/v1/messages`));
+		await onlyCaptured(store);
+
+		const res = await request(`${base}/api/clear?project=Not_Valid`, {
+			method: 'POST',
+		});
+		res.resume();
+		expect(res.statusCode).toBe(400);
+		expect(store.getRequests()).toHaveLength(1);
 	});
 
 	it('deletes one record and tells every /events client', async () => {

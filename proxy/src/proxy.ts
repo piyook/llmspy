@@ -6,7 +6,7 @@ import { exchangeParser } from './parsers/index.js';
 import { serveStatic } from './static.js';
 import type { RequestStore } from './store.js';
 import type { CapturedRequest, ProxyConfig } from './types.js';
-import { listUpstreams, resolveRoute } from './upstreams.js';
+import { isProjectName, listUpstreams, resolveRoute } from './upstreams.js';
 
 /**
  * The routes that serve captured traffic or act on it. Upstream forwarding is
@@ -73,7 +73,7 @@ export class ProxyServer {
 			return;
 		}
 		if (path === '/api/clear' && req.method === 'POST') {
-			this.handleClearRequests(res);
+			this.handleClearRequests(res, url);
 			return;
 		}
 		const deleted = DELETE_PATH.exec(path);
@@ -94,7 +94,7 @@ export class ProxyServer {
 			if (llm) captured.llm = llm;
 			this.publish(captured);
 		};
-		forwardAndCapture(req, res, route.provider, route.target, {
+		forwardAndCapture(req, res, route, {
 			onUpdate: (captured) => {
 				// When the response headers arrive the reply body is still
 				// empty, and parsing it would report an error.
@@ -122,7 +122,7 @@ export class ProxyServer {
 			.join(', ');
 		res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
 		res.end(
-			`LLMSpy: no upstream for ${req.url}. Known prefixes: ${prefixes}`,
+			`LLMSpy: no upstream for ${req.url}. Known prefixes: ${prefixes} (put /@<project> in front to tag a project).`,
 		);
 	}
 
@@ -181,10 +181,21 @@ export class ProxyServer {
 		);
 	}
 
-	private handleClearRequests(res: http.ServerResponse): void {
-		this.store.clear();
+	/** `POST /api/clear?project=<name>` clears one project; without it, all. */
+	private handleClearRequests(res: http.ServerResponse, url: string): void {
+		const project =
+			new URLSearchParams(url.split('?')[1]).get('project') ?? undefined;
+		if (project !== undefined && !isProjectName(project)) {
+			res.writeHead(400, { 'content-type': 'text/plain; charset=utf-8' });
+			res.end(`LLMSpy: "${project}" is not a project name.`);
+			return;
+		}
+		this.store.clear(project);
 		// Named, so a client that only reads records (`onmessage`) ignores it.
-		this.sendToClients('event: clear\ndata: {}\n\n');
+		// No `project` means every project was cleared.
+		this.sendToClients(
+			`event: clear\ndata: ${JSON.stringify({ project })}\n\n`,
+		);
 		res.writeHead(200, { 'Content-Type': 'application/json' });
 		res.end(JSON.stringify({ success: true }));
 	}

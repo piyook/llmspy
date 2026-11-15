@@ -2,10 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { RequestStore } from './store.js';
 import type { CapturedRequest } from './types.js';
 
-function call(id: string, path = '/v1/messages'): CapturedRequest {
+function call(
+	id: string,
+	path = '/v1/messages',
+	project = 'general',
+): CapturedRequest {
 	return {
 		id,
 		timestamp: '2026-01-01T00:00:00.000Z',
+		project,
 		provider: 'anthropic',
 		host: 'api.anthropic.com',
 		method: 'POST',
@@ -45,6 +50,17 @@ describe('RequestStore', () => {
 		expect(ids(store)).toEqual(['c', 'a']);
 		expect(store.remove('b')).toBe(false);
 		expect(ids(store)).toEqual(['c', 'a']);
+	});
+
+	it('clears one project and keeps the others', () => {
+		const store = new RequestStore();
+		store.addRequest(call('a', '/v1/messages', 'app'));
+		store.addRequest(call('b'));
+		store.addRequest(call('c', '/v1/messages', 'app'));
+		store.clear('app');
+		expect(ids(store)).toEqual(['b']);
+		store.clear();
+		expect(ids(store)).toEqual([]);
 	});
 
 	it('adds a request again after it was cleared', () => {
