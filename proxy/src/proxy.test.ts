@@ -711,6 +711,154 @@ describe('ProxyServer', () => {
 		expect((await readAll(missing)).toString()).toMatch(/no captured call/);
 	});
 
+	describe('?wait= on one call', () => {
+		const REPLY =
+			'{"model":"claude-test","content":[{"type":"text","text":"Bonjour"}],"stop_reason":"end_turn"}';
+
+		/** A proxy holding one call whose upstream answers on `release()`. */
+		async function proxyWithRunningCall() {
+			let release = () => {};
+			const released = new Promise<void>((resolve) => {
+				release = resolve;
+			});
+			const upstream = await startUpstream(async (req, res) => {
+				req.resume();
+				await released;
+				res.setHeader('content-type', 'application/json');
+				res.end(REPLY);
+			});
+			const { base, store } = await startProxy(upstream);
+			const call = request(`${base}/fake/v1/messages`, {
+				method: 'POST',
+				body: '{"model":"claude-test","messages":[{"role":"user","content":"Hello"}]}',
+			});
+			const { id } = await onlyCaptured(store);
+			const finish = async () => {
+				release();
+				await readAll(await call);
+			};
+			return { base, id, finish };
+		}
+
+		/** Whether `answer` is still unanswered after a short while. */
+		async function stillWaiting(
+			answer: Promise<unknown>,
+		): Promise<boolean> {
+			const pause = new Promise((resolve) =>
+				setTimeout(() => resolve('waiting'), 200),
+			);
+			return (await Promise.race([answer, pause])) === 'waiting';
+		}
+
+		it('answers both routes when the call ends', async () => {
+			const { base, id, finish } = await proxyWithRunningCall();
+
+			const record = request(`${base}/api/requests/${id}?wait=5`);
+			const markdown = request(
+				`${base}/api/requests/${id}/conversation?wait=5`,
+			);
+			expect(await stillWaiting(record)).toBe(true);
+			expect(await stillWaiting(markdown)).toBe(true);
+
+			await finish();
+			const recordRes = await record;
+			expect(recordRes.statusCode).toBe(200);
+			const captured = JSON.parse((await readAll(recordRes)).toString());
+			expect(captured.timings.end).toBeDefined();
+			expect(captured.response.body).toBe(REPLY);
+
+			const markdownRes = await markdown;
+			expect(markdownRes.statusCode).toBe(200);
+			expect((await readAll(markdownRes)).toString()).toContain(
+				'## Assistant (reply)\n\nBonjour\n',
+			);
+		});
+
+		it('answers with the call so far when the wait runs out', async () => {
+			const { base, id, finish } = await proxyWithRunningCall();
+
+			const started = Date.now();
+			const [recordRes, markdownRes] = await Promise.all([
+				request(`${base}/api/requests/${id}?wait=1`),
+				request(`${base}/api/requests/${id}/conversation?wait=1`),
+			]);
+			expect(Date.now() - started).toBeGreaterThanOrEqual(950);
+
+			expect(recordRes.statusCode).toBe(200);
+			const captured = JSON.parse((await readAll(recordRes)).toString());
+			expect(captured.id).toBe(id);
+			expect(captured.timings.end).toBeUndefined();
+
+			expect(markdownRes.statusCode).toBe(200);
+			expect((await readAll(markdownRes)).toString()).toContain(
+				'running',
+			);
+			await finish();
+		});
+
+		it('answers 404 when the call is deleted while waiting', async () => {
+			const { base, id, finish } = await proxyWithRunningCall();
+
+			const record = request(`${base}/api/requests/${id}?wait=5`);
+			expect(await stillWaiting(record)).toBe(true);
+			await readAll(
+				await request(`${base}/api/requests/${id}`, {
+					method: 'DELETE',
+				}),
+			);
+
+			const res = await record;
+			expect(res.statusCode).toBe(404);
+			expect((await readAll(res)).toString()).toMatch(/no captured call/);
+			await finish();
+		});
+
+		it('answers 404 when the call is cleared while waiting', async () => {
+			const { base, id, finish } = await proxyWithRunningCall();
+
+			const markdown = request(
+				`${base}/api/requests/${id}/conversation?wait=5`,
+			);
+			expect(await stillWaiting(markdown)).toBe(true);
+			await readAll(
+				await request(`${base}/api/clear`, { method: 'POST' }),
+			);
+
+			const res = await markdown;
+			expect(res.statusCode).toBe(404);
+			await readAll(res);
+			await finish();
+		});
+
+		it('answers at once for a call that ended or is unknown, and 400 to a bad wait', async () => {
+			const upstream = await startUpstream((req, res) => {
+				req.resume();
+				res.end('{}');
+			});
+			const { base, store } = await startProxy(upstream);
+			await readAll(await request(`${base}/fake/v1/messages`));
+			await vi.waitFor(() =>
+				expect(store.getRequests()[0]?.timings.end).toBeDefined(),
+			);
+			const [{ id }] = store.getRequests();
+
+			const started = Date.now();
+			const ended = await request(`${base}/api/requests/${id}?wait=300`);
+			expect(ended.statusCode).toBe(200);
+			await readAll(ended);
+			const unknown = await request(
+				`${base}/api/requests/no-such-id?wait=300`,
+			);
+			expect(unknown.statusCode).toBe(404);
+			await readAll(unknown);
+			expect(Date.now() - started).toBeLessThan(1000);
+
+			const bad = await request(`${base}/api/requests/${id}?wait=yes`);
+			expect(bad.statusCode).toBe(400);
+			expect((await readAll(bad)).toString()).toMatch(/wait must be/);
+		});
+	});
+
 	it('ignores a query string on the UI routes', async () => {
 		const upstream = await startUpstream((req, res) => {
 			req.resume();

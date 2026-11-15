@@ -49,6 +49,27 @@ export function parseListRequest(params: URLSearchParams): ListRequest {
 	};
 }
 
+/** The longest `?wait=` takes, in seconds. */
+const MAX_WAIT_SECONDS = 300;
+
+/** How long a read of one call may wait for it to end, or why it can not. */
+export type WaitRequest = { seconds?: number } | { error: string };
+
+/**
+ * Reads `wait` on the routes of one call: a whole number of seconds from 1 to
+ * 300. Without it the call is answered as it is now.
+ */
+export function parseWait(params: URLSearchParams): WaitRequest {
+	const wait = params.get('wait');
+	if (wait === null) return {};
+	if (!/^[1-9]\d*$/.test(wait) || Number(wait) > MAX_WAIT_SECONDS) {
+		return {
+			error: `wait must be a whole number of seconds from 1 to ${MAX_WAIT_SECONDS}, not "${wait}".`,
+		};
+	}
+	return { seconds: Number(wait) };
+}
+
 /** Epoch ms from digits or an ISO time; NaN for anything else. */
 function parseTime(value: string): number {
 	if (/^\d+$/.test(value)) return Number(value);

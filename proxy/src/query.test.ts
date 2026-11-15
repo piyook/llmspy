@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseListRequest } from './query.js';
+import { parseListRequest, parseWait } from './query.js';
 
 const parse = (query: string) => parseListRequest(new URLSearchParams(query));
 
@@ -73,5 +73,26 @@ describe('parseListRequest', () => {
 		expect(parse('project=Not%20One')).toEqual({
 			error: expect.stringContaining('is not a project name'),
 		});
+	});
+});
+
+describe('parseWait', () => {
+	const wait = (query: string) => parseWait(new URLSearchParams(query));
+
+	it('does not wait when nothing is asked', () => {
+		expect(wait('')).toEqual({});
+	});
+
+	it('reads whole seconds from 1 to 300', () => {
+		expect(wait('wait=1')).toEqual({ seconds: 1 });
+		expect(wait('wait=300')).toEqual({ seconds: 300 });
+	});
+
+	it('refuses anything else', () => {
+		for (const seconds of ['', '0', '301', '-1', '1.5', 'yes', '05']) {
+			expect(wait(`wait=${seconds}`)).toEqual({
+				error: expect.stringContaining('wait must be'),
+			});
+		}
 	});
 });
