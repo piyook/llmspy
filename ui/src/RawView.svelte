@@ -1,8 +1,14 @@
 <script lang="ts">
 import Body from './Body.svelte';
+import Copyable from './Copyable.svelte';
 import type { CapturedRequest } from './lib/types.js';
 
 let { request }: { request: CapturedRequest } = $props();
+
+const requestHeaders = $derived(JSON.stringify(request.headers, null, 2));
+const responseHeaders = $derived(
+	request.response ? JSON.stringify(request.response.headers, null, 2) : '',
+);
 </script>
 
 <p class="raw-target">{request.method} {request.host}{request.path}</p>
@@ -14,7 +20,9 @@ let { request }: { request: CapturedRequest } = $props();
      folded here stays folded when another request is selected. -->
 <details class="section" open>
   <summary>Request Headers</summary>
-  <pre class="json-viewer">{JSON.stringify(request.headers, null, 2)}</pre>
+  <Copyable text={requestHeaders}>
+    <pre class="json-viewer">{requestHeaders}</pre>
+  </Copyable>
 </details>
 
 <details class="section" open>
@@ -25,7 +33,9 @@ let { request }: { request: CapturedRequest } = $props();
 {#if request.response}
   <details class="section" open>
     <summary>Response Headers</summary>
-    <pre class="json-viewer">{JSON.stringify(request.response.headers, null, 2)}</pre>
+    <Copyable text={responseHeaders}>
+      <pre class="json-viewer">{responseHeaders}</pre>
+    </Copyable>
   </details>
 
   <details class="section" open>

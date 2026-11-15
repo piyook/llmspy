@@ -1,5 +1,6 @@
 <script lang="ts">
 import ConversationFooter from './ConversationFooter.svelte';
+import Copyable from './Copyable.svelte';
 import ErrorNotice from './ErrorNotice.svelte';
 import { toolNames } from './lib/conversation.js';
 import type { LlmExchange } from './lib/types.js';
@@ -52,7 +53,9 @@ function setAll(value: boolean) {
 {#if llm.system}
   <details class="section">
     <summary>System prompt</summary>
-    <div class="part-text">{llm.system}</div>
+    <Copyable text={llm.system}>
+      <div class="part-text">{llm.system}</div>
+    </Copyable>
   </details>
 {/if}
 
