@@ -654,6 +654,63 @@ describe('ProxyServer', () => {
 		expect((await readAll(res)).toString()).toMatch(/no captured call/);
 	});
 
+	it('returns a call as Markdown from /api/requests/<id>/conversation', async () => {
+		const upstream = await startUpstream((req, res) => {
+			req.resume();
+			res.setHeader('content-type', 'application/json');
+			res.end(
+				'{"model":"claude-test","content":[{"type":"text","text":"Bonjour"}],"stop_reason":"end_turn"}',
+			);
+		});
+		const { base, store } = await startProxy(upstream);
+		await readAll(
+			await request(`${base}/fake/v1/messages`, {
+				method: 'POST',
+				body: '{"model":"claude-test","messages":[{"role":"user","content":"Hello"}]}',
+			}),
+		);
+		await vi.waitFor(() =>
+			expect(store.getRequests()[0]?.timings.end).toBeDefined(),
+		);
+		const [{ id }] = store.getRequests();
+
+		const res = await request(`${base}/api/requests/${id}/conversation`);
+		expect(res.statusCode).toBe(200);
+		expect(res.headers['content-type']).toBe(
+			'text/markdown; charset=utf-8',
+		);
+		const text = (await readAll(res)).toString();
+		expect(text).toMatch(/^# claude-test · anthropic-messages\n/);
+		expect(text).toContain(
+			'## User\n\nHello\n\n## Assistant (reply)\n\nBonjour\n',
+		);
+	});
+
+	it('answers 404 with a pointer to the record for a call that is not an LLM call', async () => {
+		const upstream = await startUpstream((req, res) => {
+			req.resume();
+			res.end('{}');
+		});
+		const { base, store } = await startProxy(upstream);
+		await readAll(await request(`${base}/fake/other`));
+		await vi.waitFor(() =>
+			expect(store.getRequests()[0]?.timings.end).toBeDefined(),
+		);
+		const [{ id }] = store.getRequests();
+
+		const res = await request(`${base}/api/requests/${id}/conversation`);
+		expect(res.statusCode).toBe(404);
+		expect((await readAll(res)).toString()).toContain(
+			`/api/requests/${id}.`,
+		);
+
+		const missing = await request(
+			`${base}/api/requests/no-such-id/conversation`,
+		);
+		expect(missing.statusCode).toBe(404);
+		expect((await readAll(missing)).toString()).toMatch(/no captured call/);
+	});
+
 	it('ignores a query string on the UI routes', async () => {
 		const upstream = await startUpstream((req, res) => {
 			req.resume();
