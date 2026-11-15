@@ -8,6 +8,13 @@ services:
       - "127.0.0.1:8080:8080"
     environment:
       LLMSPY_UPSTREAMS: ${LLMSPY_UPSTREAMS:-}
+      LLMSPY_RETENTION_DAYS: ${LLMSPY_RETENTION_DAYS:-}
+    volumes:
+      # The captured calls (llmspy.db). `docker compose down` keeps it; `down -v` deletes it.
+      - llmspy-data:/home/node/.llmspy
     extra_hosts:
       # Lets an upstream on the host be reached as host.docker.internal (needed on Linux).
       - "host.docker.internal:host-gateway"
+
+volumes:
+  llmspy-data:

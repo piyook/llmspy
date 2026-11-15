@@ -8,7 +8,8 @@ A lightweight local developer tool that shows LLM API traffic in real time, with
 - **Compare**: diff a call against the one before it, or any other, to see what an agent changed between turns
 - **Projects**: tag each app's base URL to give its calls their own tab
 - **Reads three formats**: Anthropic Messages, OpenAI Chat Completions and OpenAI Responses, streamed or not
-- **Lightweight**: one command to start, one base URL to set in your app; no certificates, accounts or database
+- **Kept across restarts**: the last 7 days of calls, in one file on your machine
+- **Lightweight**: one command to start, one base URL to set in your app; no certificates or accounts
 
 ![LLMSpy showing a coding agent's call as a conversation: the user's question, the assistant's tool calls and the tool results](docs/screenshots/conversation.png)
 
@@ -28,10 +29,10 @@ Use it to:
 It is deliberately small, and quick to set up:
 
 - one command starts it, and one environment variable in your app points it there
-- no certificates to install, no accounts, no API keys of its own, no database and no config file
-- the proxy has no runtime dependencies beyond Node.js, and the UI is plain static files it serves itself, on the same port
+- no certificates to install, no accounts, no API keys of its own and no config file
+- the proxy has no runtime dependencies beyond Node.js (it stores calls with the SQLite built into Node), and the UI is plain static files it serves itself, on the same port
 
-It is for local development only. It listens on `127.0.0.1`, masks API keys in what it records, and keeps the last 500 requests in memory only.
+It is for local development only. It listens on `127.0.0.1`, masks API keys in what it records, and keeps the last 7 days of calls in a file on your machine (see [Storage](#storage)).
 
 ## What you see
 
@@ -63,7 +64,7 @@ With Docker:
 npm run start:docker   # docker compose up -d --build
 ```
 
-LLMSpy then runs in the background, restarts with Docker, and serves the proxy and the UI on `http://127.0.0.1:8080`. The port is published on the loopback interface only, so nothing outside your machine can reach it. Captured traffic (`/api/*`, `/events`, `/ping`) is only served to requests addressed to `localhost`, `127.0.0.1` or `[::1]`, and not to other web sites open in your browser. `npm run stop:docker` (`docker compose down`) stops it; captured requests are kept in memory and go with it.
+LLMSpy then runs in the background, restarts with Docker, and serves the proxy and the UI on `http://127.0.0.1:8080`. The port is published on the loopback interface only, so nothing outside your machine can reach it. Captured traffic (`/api/*`, `/events`, `/ping`) is only served to requests addressed to `localhost`, `127.0.0.1` or `[::1]`, and not to other web sites open in your browser. `npm run stop:docker` (`docker compose down`) stops it; captured calls are kept in the `llmspy-data` volume and are there again at the next start (`docker compose down -v` deletes them).
 
 Then point an app at the proxy by the provider's path prefix:
 
@@ -136,7 +137,7 @@ LLMSPY_UPSTREAMS=openrouter=https://openrouter.ai/api/v1,ollama=http://localhost
 
 ### With Docker
 
-Put the variable in a `.env` file next to `compose.yaml` (copy `.env.example` to start). Compose reads it and passes `LLMSPY_UPSTREAMS`, and nothing else from it, into the container. Then start the container, which recreates it if the value has changed:
+Put the variable in a `.env` file next to `compose.yaml` (copy `.env.example` to start). Compose reads it and passes `LLMSPY_UPSTREAMS` and `LLMSPY_RETENTION_DAYS`, and nothing else from it, into the container. Then start the container, which recreates it if the value has changed:
 
 ```bash
 # .env
@@ -157,15 +158,22 @@ LLMSpy prints every upstream and its base URL on startup (`docker compose logs` 
 
 ## Configuration
 
-| Variable           | Default     | Meaning                                                       |
-| ------------------ | ----------- | ------------------------------------------------------------- |
-| `PROXY_PORT`       | `8080`      | Port for the proxy and the UI                                 |
-| `LLMSPY_HOST`      | `127.0.0.1` | Interface to listen on; the Docker image sets `0.0.0.0`       |
-| `LLMSPY_UPSTREAMS` |             | Extra or replacement upstreams, see [Upstreams](#upstreams)   |
+| Variable                | Default     | Meaning                                                      |
+| ----------------------- | ----------- | ------------------------------------------------------------ |
+| `PROXY_PORT`            | `8080`      | Port for the proxy and the UI                                |
+| `LLMSPY_HOST`           | `127.0.0.1` | Interface to listen on; the Docker image sets `0.0.0.0`      |
+| `LLMSPY_UPSTREAMS`      |             | Extra or replacement upstreams, see [Upstreams](#upstreams)  |
+| `LLMSPY_RETENTION_DAYS` | `7`         | Days to keep captured calls; `0` keeps them until cleared    |
+
+### Storage
+
+Captured calls are kept in `~/.llmspy/llmspy.db` (with Docker, in the `llmspy-data` volume), so they are still there after a restart. LLMSpy prints where, and for how long, on startup. Calls older than `LLMSPY_RETENTION_DAYS` are removed at startup and every hour after. Clear All and the delete button remove calls from the file too. A call still running when LLMSpy stopped is shown as interrupted.
+
+The file holds whole prompts and replies (API keys are masked), so treat it like the traffic itself: it stays on your machine, and deleting it while LLMSpy is stopped removes every call.
 
 ## How it works
 
-- `proxy/`: one Node HTTP server. `/<prefix>/...` (or `/@<project>/<prefix>/...`) is forwarded to the upstream with the bytes unchanged, chunk by chunk, while a copy of each body is kept, decompressed (gzip, deflate, br, zstd) and decoded for display. `/events` (Server-Sent Events of call summaries), `/api/requests` (summaries, with `?project=` and `?q=` search), `GET`/`DELETE /api/requests/<id>` (one full record), `/api/upstreams` (each prefix and where it forwards to) and `/api/clear` serve the UI, and any other path is a file from the built UI (`ui/dist`).
+- `proxy/`: one Node HTTP server. `/<prefix>/...` (or `/@<project>/<prefix>/...`) is forwarded to the upstream with the bytes unchanged, chunk by chunk, while a copy of each body is kept, decompressed (gzip, deflate, br, zstd) and decoded for display. `/events` (Server-Sent Events of call summaries), `/api/requests` (summaries, with `?project=` and `?q=` search), `GET`/`DELETE /api/requests/<id>` (one full record), `/api/upstreams` (each prefix and where it forwards to) and `/api/clear` serve the UI, and any other path is a file from the built UI (`ui/dist`). Calls are stored with `node:sqlite`; a running call is held in memory and written when it starts, when its response headers arrive and when it ends.
 - `ui/`: Svelte and Vite.
 
 ## Development

@@ -14,6 +14,7 @@ const HOUR_MS = 60 * 60 * 1000;
 
 let config: ProxyConfig;
 let store: RequestStore;
+let retentionDays: number;
 try {
 	config = {
 		port: Number.parseInt(process.env.PROXY_PORT ?? '8080', 10),
@@ -21,13 +22,17 @@ try {
 		upstreams: parseUpstreams(process.env.LLMSPY_UPSTREAMS),
 		uiDir,
 	};
-	const retentionDays = parseRetentionDays(process.env.LLMSPY_RETENTION_DAYS);
+	retentionDays = parseRetentionDays(process.env.LLMSPY_RETENTION_DAYS);
 	mkdirSync(path.dirname(dbFile), { recursive: true });
 	store = new RequestStore({ path: dbFile, retentionDays });
 } catch (error) {
 	console.error((error as Error).message);
 	process.exit(1);
 }
+const keptFor =
+	retentionDays === 0
+		? 'until cleared'
+		: `${retentionDays} day${retentionDays === 1 ? '' : 's'}`;
 
 store.prune();
 setInterval(() => store.prune(), HOUR_MS).unref();
@@ -49,6 +54,7 @@ async function start(): Promise<void> {
 		);
 
 		console.log(`LLMSpy listening on ${config.host}:${port}`);
+		console.log(`Calls kept ${keptFor} in ${dbFile}`);
 		if (existsSync(path.join(uiDir, 'index.html'))) {
 			console.log(`UI: ${base}/\n`);
 		} else {
