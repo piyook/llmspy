@@ -29,6 +29,14 @@ export class RequestStore {
 		return [...this.requests];
 	}
 
+	/** Removes the request with this id, and says whether there was one. */
+	public remove(id: string): boolean {
+		const index = this.requests.findIndex((request) => request.id === id);
+		if (index === -1) return false;
+		this.requests.splice(index, 1);
+		return true;
+	}
+
 	public clear(): void {
 		this.requests = [];
 	}

@@ -36,6 +36,17 @@ describe('RequestStore', () => {
 		expect(store.getRequests()[1].path).toBe('/v1/messages?done');
 	});
 
+	it('removes one request by id, and says whether it was there', () => {
+		const store = new RequestStore();
+		store.addRequest(call('a'));
+		store.addRequest(call('b'));
+		store.addRequest(call('c'));
+		expect(store.remove('b')).toBe(true);
+		expect(ids(store)).toEqual(['c', 'a']);
+		expect(store.remove('b')).toBe(false);
+		expect(ids(store)).toEqual(['c', 'a']);
+	});
+
 	it('adds a request again after it was cleared', () => {
 		const store = new RequestStore();
 		store.addRequest(call('a'));

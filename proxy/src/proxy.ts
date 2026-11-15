@@ -16,6 +16,9 @@ function isUiRoute(path: string): boolean {
 	return path === '/ping' || path === '/events' || path.startsWith('/api/');
 }
 
+/** `DELETE /api/requests/<id>`: ids are UUIDs, so no decoding is needed. */
+const DELETE_PATH = /^\/api\/requests\/([\w-]+)$/;
+
 /**
  * One HTTP server for both jobs: `/<upstream>/...` is forwarded and captured,
  * and `/ping`, `/events` and `/api/*` serve the UI.
@@ -71,6 +74,11 @@ export class ProxyServer {
 		}
 		if (path === '/api/clear' && req.method === 'POST') {
 			this.handleClearRequests(res);
+			return;
+		}
+		const deleted = DELETE_PATH.exec(path);
+		if (deleted && req.method === 'DELETE') {
+			this.handleDeleteRequest(res, deleted[1]);
 			return;
 		}
 
@@ -179,6 +187,20 @@ export class ProxyServer {
 		this.sendToClients('event: clear\ndata: {}\n\n');
 		res.writeHead(200, { 'Content-Type': 'application/json' });
 		res.end(JSON.stringify({ success: true }));
+	}
+
+	private handleDeleteRequest(res: http.ServerResponse, id: string): void {
+		if (!this.store.remove(id)) {
+			res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
+			res.end(`LLMSpy: no captured call ${id}.`);
+			return;
+		}
+		// Named like `clear`, so every tab drops the row.
+		this.sendToClients(
+			`event: delete\ndata: ${JSON.stringify({ id })}\n\n`,
+		);
+		res.writeHead(204);
+		res.end();
 	}
 
 	/** Starts listening and resolves with the port (useful when `port` is 0). */
