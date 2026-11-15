@@ -150,10 +150,11 @@ export function messageChanges(
 	return { same, other: other.slice(same), call: call.slice(same) };
 }
 
-// Parsed messages are plain data built by the same parser, so the same
-// message gives the same JSON.
+// Parsed messages are plain data, so the same message gives the same JSON
+// once keys are sorted: a client may re-send a tool call's input with its
+// keys in another order.
 function sameMessage(a: LlmMessage, b: LlmMessage): boolean {
-	return JSON.stringify(a) === JSON.stringify(b);
+	return JSON.stringify(sortKeys(a)) === JSON.stringify(sortKeys(b));
 }
 
 /** One line saying how the two conversations relate. */

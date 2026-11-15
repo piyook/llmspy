@@ -227,6 +227,32 @@ describe('messageChanges', () => {
 		expect(messageChanges([call], [structuredClone(call)]).same).toBe(1);
 	});
 
+	it('ignores the order of keys in a tool call input', () => {
+		const call: LlmMessage = {
+			role: 'assistant',
+			parts: [
+				{
+					type: 'tool_call',
+					id: 't1',
+					name: 'read',
+					input: { path: 'a.txt', range: { from: 1, to: 9 } },
+				},
+			],
+		};
+		const reordered: LlmMessage = {
+			role: 'assistant',
+			parts: [
+				{
+					type: 'tool_call',
+					id: 't1',
+					name: 'read',
+					input: { range: { to: 9, from: 1 }, path: 'a.txt' },
+				},
+			],
+		};
+		expect(messageChanges([call], [reordered]).same).toBe(1);
+	});
+
 	it('reports identical conversations as all the same', () => {
 		expect(messageChanges([hi, hello], [hi, hello])).toEqual({
 			same: 2,
