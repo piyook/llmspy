@@ -2,7 +2,7 @@ import * as http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { forwardAndCapture } from './capture.js';
 import { isAllowedUiRequest } from './guard.js';
-import { parseExchange } from './parsers/index.js';
+import { exchangeParser } from './parsers/index.js';
 import { serveStatic } from './static.js';
 import type { RequestStore } from './store.js';
 import type { CapturedRequest, ProxyConfig } from './types.js';
@@ -80,22 +80,21 @@ export class ProxyServer {
 			return;
 		}
 
+		const parse = exchangeParser();
+		const record = (captured: CapturedRequest): void => {
+			const llm = parse(captured);
+			if (llm) captured.llm = llm;
+			this.publish(captured);
+		};
 		forwardAndCapture(req, res, route.provider, route.target, {
 			onUpdate: (captured) => {
-				// Until it ends only the request can be read; the reply body
-				// is still empty, and parsing it would report an error.
-				if (!captured.response) this.record(captured);
-				else this.publish(captured);
+				// When the response headers arrive the reply body is still
+				// empty, and parsing it would report an error.
+				if (captured.response?.body === '') this.publish(captured);
+				else record(captured);
 			},
-			onDone: (captured) => this.record(captured),
+			onDone: record,
 		});
-	}
-
-	/** Parses a capture, then stores and broadcasts it. */
-	private record(captured: CapturedRequest): void {
-		const llm = parseExchange(captured);
-		if (llm) captured.llm = llm;
-		this.publish(captured);
 	}
 
 	private publish(captured: CapturedRequest): void {

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import * as http from 'node:http';
 import * as https from 'node:https';
 import * as zlib from 'node:zlib';
+import { isEventStream } from './parsers/sse.js';
 import type { CapturedRequest, Headers } from './types.js';
 
 /** Headers that apply to one connection and must not be forwarded (RFC 9110 7.6.1). */
@@ -108,11 +109,30 @@ export function decodeBody(
 	}
 }
 
+/** How often, at most, a streamed reply is passed on while it arrives. */
+const LIVE_INTERVAL_MS = 500;
+
+/**
+ * Whether the reply so far is worth passing on while it arrives: only an
+ * uncompressed event stream. A JSON body cut short can not be read, and a
+ * compressed one would have to be decompressed from the start each time.
+ */
+export function isLiveStream(headers: http.IncomingHttpHeaders): boolean {
+	const encoding = String(headers['content-encoding'] ?? '')
+		.trim()
+		.toLowerCase();
+	return (
+		isEventStream(headers['content-type']) &&
+		(encoding === '' || encoding === 'identity')
+	);
+}
+
 export interface CaptureHandlers {
 	/**
 	 * The exchange so far, while it runs: once the request body has arrived,
-	 * and again when the response headers arrive (`response.body` is then
-	 * still empty). `timings.end` is not set yet.
+	 * again when the response headers arrive (`response.body` is then still
+	 * empty), and for an uncompressed event stream every half second or so
+	 * with the reply so far. `timings.end` is not set yet.
 	 */
 	onUpdate: (captured: CapturedRequest) => void;
 	/** The whole exchange, once, when the response has been sent or it failed. */
@@ -151,10 +171,12 @@ export function forwardAndCapture(
 	const responseChunks: Buffer[] = [];
 	let upstreamRes: http.IncomingMessage | undefined;
 	let finished = false;
+	let liveTimer: NodeJS.Timeout | undefined;
 
 	const finish = (error?: string): void => {
 		if (finished) return;
 		finished = true;
+		clearTimeout(liveTimer);
 
 		const end = Date.now();
 		captured.timings.end = end;
@@ -203,13 +225,29 @@ export function forwardAndCapture(
 			response.statusCode ?? 502,
 			stripHopByHop(response.headers),
 		);
-		captured.response = {
+		const live = {
 			status: response.statusCode ?? 0,
 			headers: stripHopByHop(response.headers),
 			body: '',
 		};
+		captured.response = live;
 		onUpdate(captured);
-		response.on('data', (chunk: Buffer) => responseChunks.push(chunk));
+
+		// The reply so far, on a timer, so a chunk is passed through to the
+		// client before any of this work is done.
+		const sendLive = (): void => {
+			liveTimer = undefined;
+			if (finished) return;
+			live.body = Buffer.concat(responseChunks).toString('utf8');
+			onUpdate(captured);
+		};
+		const isLive = isLiveStream(response.headers);
+		response.on('data', (chunk: Buffer) => {
+			responseChunks.push(chunk);
+			if (isLive && !liveTimer) {
+				liveTimer = setTimeout(sendLive, LIVE_INTERVAL_MS);
+			}
+		});
 		response.on('error', (error) => {
 			finish(`Upstream response failed: ${error.message}`);
 			res.destroy();

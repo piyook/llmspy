@@ -2,10 +2,39 @@ import * as zlib from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import {
 	decodeBody,
+	isLiveStream,
 	maskHeaders,
 	maskSecret,
 	stripHopByHop,
 } from './capture.js';
+
+describe('isLiveStream', () => {
+	it('passes on an uncompressed event stream while it arrives', () => {
+		expect(
+			isLiveStream({
+				'content-type': 'text/event-stream; charset=utf-8',
+			}),
+		).toBe(true);
+		expect(
+			isLiveStream({
+				'content-type': 'text/event-stream',
+				'content-encoding': 'identity',
+			}),
+		).toBe(true);
+	});
+
+	it('waits for the end of a compressed stream or a JSON body', () => {
+		expect(
+			isLiveStream({
+				'content-type': 'text/event-stream',
+				'content-encoding': 'gzip',
+			}),
+		).toBe(false);
+		expect(isLiveStream({ 'content-type': 'application/json' })).toBe(
+			false,
+		);
+	});
+});
 
 describe('maskSecret', () => {
 	it('keeps the last four characters of a long key', () => {

@@ -1,3 +1,12 @@
+/** Whether a `content-type` header says the body is Server-Sent Events. */
+export function isEventStream(
+	contentType: string | string[] | undefined,
+): boolean {
+	return String(contentType ?? '')
+		.toLowerCase()
+		.startsWith('text/event-stream');
+}
+
 export interface SseEvent {
 	/** The `event:` field, or `message` when there is none. */
 	event: string;

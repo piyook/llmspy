@@ -184,6 +184,70 @@ describe('ProxyServer', () => {
 		events.destroy();
 	});
 
+	it('reads a streamed reply while it arrives', async () => {
+		let release = () => {};
+		const released = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		const event = (data: object) =>
+			`event: ${(data as { type: string }).type}\ndata: ${JSON.stringify(data)}\n\n`;
+
+		const upstream = await startUpstream(async (req, res) => {
+			req.resume();
+			res.writeHead(200, { 'content-type': 'text/event-stream' });
+			res.write(
+				event({
+					type: 'message_start',
+					message: { model: 'claude-test', usage: {} },
+				}) +
+					event({
+						type: 'content_block_start',
+						index: 0,
+						content_block: { type: 'text', text: '' },
+					}) +
+					event({
+						type: 'content_block_delta',
+						index: 0,
+						delta: { type: 'text_delta', text: 'Hel' },
+					}),
+			);
+			await released;
+			res.end(
+				event({
+					type: 'content_block_delta',
+					index: 0,
+					delta: { type: 'text_delta', text: 'lo' },
+				}) + event({ type: 'message_stop' }),
+			);
+		});
+		const { base, store } = await startProxy(upstream);
+
+		const res = await request(`${base}/fake/v1/messages`, {
+			method: 'POST',
+			body: '{"model":"claude-test","stream":true,"messages":[]}',
+		});
+		const ended = readAll(res);
+
+		await vi.waitFor(() =>
+			expect(store.getRequests()[0]?.llm?.output?.parts).toEqual([
+				{ type: 'text', text: 'Hel' },
+			]),
+		);
+		const running = store.getRequests()[0];
+		expect(running.timings.end).toBeUndefined();
+		expect(running.response?.body).toContain('Hel');
+
+		release();
+		await ended;
+		await vi.waitFor(() =>
+			expect(store.getRequests()[0].timings.end).toBeDefined(),
+		);
+		expect(store.getRequests()).toHaveLength(1);
+		expect(store.getRequests()[0].llm?.output?.parts).toEqual([
+			{ type: 'text', text: 'Hello' },
+		]);
+	});
+
 	it('forwards compressed bytes unchanged and captures the decompressed body', async () => {
 		const payload = JSON.stringify({ content: 'héllo wörld ✓' });
 		const gz = zlib.gzipSync(payload);

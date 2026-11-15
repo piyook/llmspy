@@ -2,8 +2,13 @@ import type { CapturedRequest } from '../types.js';
 import { anthropicMessages } from './anthropic.js';
 import { openaiChat } from './openai-chat.js';
 import { openaiResponses } from './openai-responses.js';
-import { parseSseJson } from './sse.js';
-import type { FormatParser, LlmExchange, LlmFormat } from './types.js';
+import { isEventStream, parseSseJson } from './sse.js';
+import type {
+	FormatParser,
+	LlmExchange,
+	LlmFormat,
+	LlmRequest,
+} from './types.js';
 
 const PARSERS: Record<LlmFormat, FormatParser> = {
 	'anthropic-messages': anthropicMessages,
@@ -27,10 +32,24 @@ export function detectFormat(
 	return undefined;
 }
 
-function isEventStream(contentType: string | string[] | undefined): boolean {
-	return String(contentType ?? '')
-		.toLowerCase()
-		.startsWith('text/event-stream');
+/** What the request body says, read once and reused while the reply streams. */
+interface RequestPart {
+	format: LlmFormat;
+	fields?: LlmRequest;
+	error?: string;
+}
+
+function readRequest(captured: CapturedRequest): RequestPart | undefined {
+	const format = detectFormat(captured.method, captured.path);
+	if (!format) return undefined;
+	try {
+		return {
+			format,
+			fields: PARSERS[format].parseRequest(JSON.parse(captured.body)),
+		};
+	} catch (error) {
+		return { format, error: `request: ${(error as Error).message}` };
+	}
 }
 
 /**
@@ -42,18 +61,43 @@ function isEventStream(contentType: string | string[] | undefined): boolean {
 export function parseExchange(
 	captured: CapturedRequest,
 ): LlmExchange | undefined {
-	const format = detectFormat(captured.method, captured.path);
-	const parser = format && PARSERS[format];
-	if (!format || !parser) return undefined;
+	return readExchange(captured, readRequest(captured));
+}
 
-	const exchange: LlmExchange = { format, stream: false, messages: [] };
-	const errors: string[] = [];
+/**
+ * `parseExchange` for one call that is read many times while its reply
+ * streams. The request body does not change by then, and can be large, so it
+ * is parsed again only when it does.
+ */
+export function exchangeParser(): (
+	captured: CapturedRequest,
+) => LlmExchange | undefined {
+	let body: string | undefined;
+	let request: RequestPart | undefined;
+	return (captured) => {
+		if (captured.body !== body) {
+			body = captured.body;
+			request = readRequest(captured);
+		}
+		return readExchange(captured, request);
+	};
+}
 
-	try {
-		Object.assign(exchange, parser.parseRequest(JSON.parse(captured.body)));
-	} catch (error) {
-		errors.push(`request: ${(error as Error).message}`);
-	}
+function readExchange(
+	captured: CapturedRequest,
+	request: RequestPart | undefined,
+): LlmExchange | undefined {
+	if (!request) return undefined;
+	const { format } = request;
+	const parser = PARSERS[format];
+
+	const exchange: LlmExchange = {
+		format,
+		stream: false,
+		messages: [],
+		...request.fields,
+	};
+	const errors = request.error ? [request.error] : [];
 
 	const response = captured.response;
 	if (response && response.status >= 200 && response.status < 300) {

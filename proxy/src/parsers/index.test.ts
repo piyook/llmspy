@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CapturedRequest } from '../types.js';
-import { detectFormat, parseExchange } from './index.js';
+import { detectFormat, exchangeParser, parseExchange } from './index.js';
 
 function capture(overrides: Partial<CapturedRequest>): CapturedRequest {
 	return {
@@ -195,6 +195,58 @@ describe('parseExchange', () => {
 		expect(exchange?.output?.parts).toEqual([
 			{ type: 'text', text: 'Hello' },
 		]);
+	});
+});
+
+describe('exchangeParser', () => {
+	const streamed = (events: object[]) => ({
+		status: 200,
+		headers: { 'content-type': 'text/event-stream' },
+		body: sse(events),
+	});
+	const started = [
+		{ type: 'message_start', message: { model: 'claude-test', usage: {} } },
+		{
+			type: 'content_block_start',
+			index: 0,
+			content_block: { type: 'text', text: '' },
+		},
+		{
+			type: 'content_block_delta',
+			index: 0,
+			delta: { type: 'text_delta', text: 'Hel' },
+		},
+	];
+
+	it('reads the reply so far each time, and the request only when it changes', () => {
+		const parse = exchangeParser();
+		const captured = capture({ response: streamed(started) });
+
+		const first = parse(captured);
+		expect(first?.output?.parts).toEqual([{ type: 'text', text: 'Hel' }]);
+
+		captured.response = streamed([
+			...started,
+			{
+				type: 'content_block_delta',
+				index: 0,
+				delta: { type: 'text_delta', text: 'lo' },
+			},
+		]);
+		const second = parse(captured);
+		expect(second?.output?.parts).toEqual([
+			{ type: 'text', text: 'Hello' },
+		]);
+		expect(second?.messages).toBe(first?.messages);
+
+		captured.body = JSON.stringify({ messages: [] });
+		expect(parse(captured)?.messages).toEqual([]);
+	});
+
+	it('returns nothing for a path that is not an LLM API', () => {
+		expect(
+			exchangeParser()(capture({ path: '/v1/models' })),
+		).toBeUndefined();
 	});
 });
 
