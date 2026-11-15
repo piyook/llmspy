@@ -536,6 +536,11 @@ body {
 	color: var(--accent);
 }
 
+.status-quiet {
+	color: var(--text-muted);
+	font-style: italic;
+}
+
 /* Raw view of the selected request. */
 .raw-target {
 	margin: 0 0 1rem;
