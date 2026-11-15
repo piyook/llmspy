@@ -316,6 +316,29 @@ describe('ProxyServer', () => {
 		expect(res.headers['content-type']).toBe('text/event-stream');
 	});
 
+	it('tells every /events client when the records are cleared', async () => {
+		const { base } = await startProxy('http://127.0.0.1:1');
+		const clients = await Promise.all([
+			request(`${base}/events`),
+			request(`${base}/events`),
+		]);
+		const received = clients.map((client) => {
+			const chunks: string[] = [];
+			client.on('data', (chunk: Buffer) => chunks.push(chunk.toString()));
+			return chunks;
+		});
+
+		const clear = await request(`${base}/api/clear`, { method: 'POST' });
+		clear.resume();
+
+		for (const chunks of received) {
+			await vi.waitFor(() =>
+				expect(chunks.join('')).toBe('event: clear\ndata: {}\n\n'),
+			);
+		}
+		for (const client of clients) client.destroy();
+	});
+
 	it('ignores a query string on the UI routes', async () => {
 		const upstream = await startUpstream((req, res) => {
 			req.resume();

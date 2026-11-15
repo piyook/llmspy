@@ -119,9 +119,12 @@ export class ProxyServer {
 	}
 
 	private broadcast(captured: CapturedRequest): void {
-		const data = `data: ${JSON.stringify(captured)}\n\n`;
+		this.sendToClients(`data: ${JSON.stringify(captured)}\n\n`);
+	}
+
+	private sendToClients(event: string): void {
 		for (const client of this.sseClients) {
-			client.write(data);
+			client.write(event);
 		}
 	}
 
@@ -172,6 +175,8 @@ export class ProxyServer {
 
 	private handleClearRequests(res: http.ServerResponse): void {
 		this.store.clear();
+		// Named, so a client that only reads records (`onmessage`) ignores it.
+		this.sendToClients('event: clear\ndata: {}\n\n');
 		res.writeHead(200, { 'Content-Type': 'application/json' });
 		res.end(JSON.stringify({ success: true }));
 	}

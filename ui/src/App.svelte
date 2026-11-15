@@ -84,6 +84,8 @@ onMount(() => {
 			const request: CapturedRequest = JSON.parse(event.data);
 			requests.set(request.id, request);
 		};
+		// Clear All in any tab, or a `POST /api/clear` from elsewhere.
+		events.addEventListener('clear', () => requests.clear());
 		// EventSource retries a dropped connection by itself. It stops for
 		// good (CLOSED) only on an HTTP error, e.g. the Vite dev proxy's 5xx
 		// while the proxy restarts, so only then open a new one.
