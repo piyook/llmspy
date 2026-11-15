@@ -63,6 +63,10 @@ const base = $derived(`${location.protocol}//${address ?? DEFAULT_ADDRESS}`);
         Search looks in every project, prompts and replies included; each tab
         shows its number of matches.
       </li>
+      <li>
+        The chips under Today show only the calls of the last 5 to 90
+        minutes.
+      </li>
       <li>API keys are masked. Prompts and replies are shown in full.</li>
       <li>
         Calls are kept in a file on your machine, so they survive a restart:

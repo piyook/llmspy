@@ -563,6 +563,48 @@ body {
 	color: var(--text-faint);
 }
 
+/* Under Today's heading: narrow its calls to the last few minutes. */
+.recent-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.25rem;
+	padding: 0 0.25rem;
+}
+
+.chip {
+	padding: 0.05rem 0.45rem;
+	border: 1px solid var(--border);
+	border-radius: 999px;
+	background: transparent;
+	color: var(--text-muted);
+	font: inherit;
+	font-size: 0.75rem;
+	cursor: pointer;
+}
+
+.chip:hover {
+	border-color: var(--accent);
+	color: var(--text-strong);
+}
+
+.chip:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 1px;
+}
+
+.chip[aria-pressed="true"] {
+	border-color: var(--accent);
+	background: var(--accent);
+	color: var(--bg);
+}
+
+.recent-empty {
+	margin: 0;
+	padding: 0 0.25rem;
+	color: var(--text-faint);
+	font-size: 0.85rem;
+}
+
 /* While picking a call to compare with, a click picks instead of selecting. */
 .list.picking .row {
 	cursor: crosshair;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dayKey, dayLabel, groupByDay } from './days.js';
+import { dayKey, dayLabel, groupByDay, withinLast } from './days.js';
 import type { CallSummary } from './types.js';
 
 // Local times, so the tests pass in any time zone.
@@ -45,6 +45,25 @@ describe('dayLabel', () => {
 
 	it('adds the year for a day in another year', () => {
 		expect(dayLabel('2025-11-12', now)).toBe('Wed 12 Nov 2025');
+	});
+});
+
+describe('withinLast', () => {
+	const now = at(11, 15, 12);
+	const minutesAgo = (minutes: number) => call(now - minutes * 60_000);
+
+	it('keeps the calls that started in the window, in order', () => {
+		const calls = [minutesAgo(1), minutesAgo(4), minutesAgo(6)];
+		expect(withinLast(calls, 5, now)).toEqual([calls[0], calls[1]]);
+	});
+
+	it('keeps a call that started exactly at the edge', () => {
+		const edge = minutesAgo(5);
+		expect(withinLast([edge], 5, now)).toEqual([edge]);
+	});
+
+	it('is empty when no call is that recent', () => {
+		expect(withinLast([minutesAgo(91)], 90, now)).toEqual([]);
 	});
 });
 
