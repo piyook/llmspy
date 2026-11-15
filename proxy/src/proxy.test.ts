@@ -361,6 +361,50 @@ describe('ProxyServer', () => {
 		for (const client of clients) client.destroy();
 	});
 
+	it('deletes one record and tells every /events client', async () => {
+		const upstream = await startUpstream((req, res) => {
+			req.resume();
+			res.end('{}');
+		});
+		const { base, store } = await startProxy(upstream);
+		await readAll(await request(`${base}/fake/v1/messages`));
+		const { id } = await onlyCaptured(store);
+
+		const events = await request(`${base}/events`);
+		const chunks: string[] = [];
+		events.on('data', (chunk: Buffer) => chunks.push(chunk.toString()));
+		// The replayed record arrives first.
+		await vi.waitFor(() => expect(chunks).toHaveLength(1));
+
+		const res = await request(`${base}/api/requests/${id}`, {
+			method: 'DELETE',
+		});
+		expect(res.statusCode).toBe(204);
+		expect((await readAll(res)).length).toBe(0);
+		expect(store.getRequests()).toHaveLength(0);
+		await vi.waitFor(() =>
+			expect(chunks.slice(1).join('')).toBe(
+				`event: delete\ndata: {"id":"${id}"}\n\n`,
+			),
+		);
+		events.destroy();
+	});
+
+	it('answers 404 to deleting a record it does not hold, and sends no event', async () => {
+		const { base } = await startProxy('http://127.0.0.1:1');
+		const events = await request(`${base}/events`);
+		const chunks: string[] = [];
+		events.on('data', (chunk: Buffer) => chunks.push(chunk.toString()));
+
+		const res = await request(`${base}/api/requests/no-such-id`, {
+			method: 'DELETE',
+		});
+		res.resume();
+		expect(res.statusCode).toBe(404);
+		expect(chunks).toEqual([]);
+		events.destroy();
+	});
+
 	it('ignores a query string on the UI routes', async () => {
 		const upstream = await startUpstream((req, res) => {
 			req.resume();
@@ -419,6 +463,7 @@ describe('ProxyServer', () => {
 	it.each([
 		['GET', '/api/requests'],
 		['POST', '/api/clear'],
+		['DELETE', '/api/requests/some-id'],
 		['GET', '/events'],
 		['GET', '/ping'],
 	])('refuses %s %s from another site', async (method, path) => {

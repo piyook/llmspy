@@ -152,7 +152,7 @@ LLMSpy prints every upstream and its base URL on startup (`docker compose logs` 
 
 ## How it works
 
-- `proxy/`: one Node HTTP server. `/<prefix>/...` is forwarded to the upstream with the bytes unchanged, chunk by chunk, while a copy of each body is kept, decompressed (gzip, deflate, br, zstd) and decoded for display. `/events` (Server-Sent Events), `/api/requests`, `/api/upstreams` (each prefix and where it forwards to) and `/api/clear` serve the UI, and any other path is a file from the built UI (`ui/dist`).
+- `proxy/`: one Node HTTP server. `/<prefix>/...` is forwarded to the upstream with the bytes unchanged, chunk by chunk, while a copy of each body is kept, decompressed (gzip, deflate, br, zstd) and decoded for display. `/events` (Server-Sent Events), `/api/requests`, `/api/upstreams` (each prefix and where it forwards to) `/api/clear` and `DELETE /api/requests/<id>` serve the UI, and any other path is a file from the built UI (`ui/dist`).
 - `ui/`: Svelte and Vite.
 
 ## Development
