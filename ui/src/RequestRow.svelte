@@ -78,6 +78,25 @@ const replyError = $derived(
     {:else if request.latency !== undefined}
       <span class="latency">{formatLatency(request.latency)}</span>
     {/if}
+    {#if phase !== 'done'}
+      <!-- A clock face at quarter past: the call has not finished yet. It
+           flashes until the reply starts. -->
+      <svg
+        class="row-running"
+        class:flashing={phase === 'waiting'}
+        viewBox="0 0 24 24"
+        width="14"
+        height="14"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5h4" />
+      </svg>
+    {/if}
   </span>
   <span class="row-line">
     <span class="row-provider">{request.provider}</span>

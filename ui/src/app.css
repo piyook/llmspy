@@ -541,6 +541,31 @@ body {
 	font-style: italic;
 }
 
+/* Clock at the right end of a row whose call is still running. */
+.row-running {
+	flex: none;
+	align-self: center;
+	margin-left: auto;
+	color: var(--warning);
+}
+
+/* On and off once a second while the call waits for its reply. */
+.row-running.flashing {
+	animation: flash 1s step-end infinite;
+}
+
+@keyframes flash {
+	50% {
+		opacity: 0;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.row-running.flashing {
+		animation: none;
+	}
+}
+
 /* Raw view of the selected request. */
 .raw-target {
 	margin: 0 0 1rem;
