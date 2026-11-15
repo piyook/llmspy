@@ -244,9 +244,9 @@ export function forwardAndCapture(
 		const isLive = isLiveStream(response.headers);
 		response.on('data', (chunk: Buffer) => {
 			responseChunks.push(chunk);
-			if (isLive && !liveTimer) {
-				liveTimer = setTimeout(sendLive, LIVE_INTERVAL_MS);
-			}
+			if (!isLive) return;
+			captured.timings.lastData = Date.now();
+			if (!liveTimer) liveTimer = setTimeout(sendLive, LIVE_INTERVAL_MS);
 		});
 		response.on('error', (error) => {
 			finish(`Upstream response failed: ${error.message}`);

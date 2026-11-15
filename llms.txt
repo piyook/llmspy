@@ -90,7 +90,7 @@ Each record in `/api/requests` and `/events`:
 | `headers` | Request headers, keys masked, hop-by-hop headers removed |
 | `body` | Request body, decompressed and decoded as UTF-8 text (JSON is a string: parse it) |
 | `response` | `{"status","headers","body"}`, body decompressed and decoded. Absent until the response headers arrive, and when the upstream never answered; `body` is `""` until the call ends, except for a streamed reply, which holds what has arrived so far |
-| `timings` | `{"start","firstByte"?,"end"?}`, epoch ms; `firstByte` is when the response headers arrived; no `end` while the call is still running |
+| `timings` | `{"start","firstByte"?,"lastData"?,"end"?}`, epoch ms; `firstByte` is when the response headers arrived, `lastData` when the latest chunk of a streamed reply arrived (only for the uncompressed streams updated while they arrive); no `end` while the call is still running. On a running stream, `lastData` shows how long it has been quiet |
 | `latency` | `end - start`, ms; absent while the call is still running |
 | `error` | Set when the exchange failed: `Upstream request failed: …` (never reached; the app got `502`), `Upstream response failed: …` (the reply broke off), `Client closed the connection before the response finished` |
 | `llm` | The call read as an LLM API call, below. Absent when the path is not one LLMSpy knows |

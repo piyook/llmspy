@@ -7,6 +7,11 @@ export interface Timings {
 	start: number;
 	/** Epoch ms when the upstream response headers arrived. */
 	firstByte?: number;
+	/**
+	 * Epoch ms when the latest chunk of the response body arrived. Only for a
+	 * reply passed on while it arrives (an uncompressed event stream).
+	 */
+	lastData?: number;
 	/** Epoch ms when the response was fully sent, or the exchange failed. */
 	end?: number;
 }
