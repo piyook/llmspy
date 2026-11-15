@@ -5,7 +5,10 @@ export type {
 	LlmPart,
 	LlmUsage,
 } from '../../../proxy/src/parsers/types.js';
-export type { CapturedRequest } from '../../../proxy/src/types.js';
+export type {
+	CallSummary,
+	CapturedRequest,
+} from '../../../proxy/src/types.js';
 
 /** The views of the selected request. */
 export type Tab = 'conversation' | 'raw' | 'compare';

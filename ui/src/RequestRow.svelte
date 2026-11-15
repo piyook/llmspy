@@ -7,7 +7,7 @@ import {
 	statusClass,
 } from './lib/format.js';
 import { callState, quietFor } from './lib/requests.js';
-import type { CapturedRequest } from './lib/types.js';
+import type { CallSummary } from './lib/types.js';
 
 // comparing: whether the Compare tab is open. compared: the call it
 // compares the selected one with.
@@ -19,7 +19,7 @@ let {
 	onselect,
 	ondelete,
 }: {
-	request: CapturedRequest;
+	request: CallSummary;
 	selected: boolean;
 	comparing?: boolean;
 	compared?: boolean;

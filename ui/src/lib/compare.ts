@@ -1,7 +1,7 @@
 import { type Change, diffLines } from 'diff';
 import { USAGE_LABELS } from './conversation.js';
 import type {
-	CapturedRequest,
+	CallSummary,
 	LlmExchange,
 	LlmMessage,
 	LlmUsage,
@@ -18,10 +18,10 @@ import type {
  * LLMSpy before `call`.
  */
 export function previousCall(
-	requests: Iterable<CapturedRequest>,
-	call: CapturedRequest,
-): CapturedRequest | undefined {
-	let previous: CapturedRequest | undefined;
+	requests: Iterable<CallSummary>,
+	call: CallSummary,
+): CallSummary | undefined {
+	let previous: CallSummary | undefined;
 	for (const request of requests) {
 		if (
 			request.provider === call.provider &&
