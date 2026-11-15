@@ -55,6 +55,8 @@ The traffic in these screenshots is made up, sent to the mock server described u
 
 ## Quick start
 
+Running LLMSpy without Docker needs **Node.js 26 or later** (`node --version`); the Docker image brings its own.
+
 With Docker:
 
 ```bash
@@ -167,6 +169,8 @@ LLMSpy prints every upstream and its base URL on startup (`docker compose logs` 
 - `ui/`: Svelte and Vite.
 
 ## Development
+
+Needs Node.js 26 or later, as set in `engines` in `package.json`.
 
 ```bash
 npm install
