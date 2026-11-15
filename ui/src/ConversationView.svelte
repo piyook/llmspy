@@ -4,10 +4,11 @@ import ErrorNotice from './ErrorNotice.svelte';
 import { toolNames } from './lib/conversation.js';
 import type { LlmExchange } from './lib/types.js';
 import Message from './Message.svelte';
+import Reply from './Reply.svelte';
 import ToolList from './ToolList.svelte';
 
 // captureError: the capture's own error, such as the stream breaking off.
-// running: the call has not ended yet, so there is no reply to show.
+// running: the call has not ended yet, so the reply is missing or partial.
 let {
 	llm,
 	captureError,
@@ -71,20 +72,12 @@ function setAll(value: boolean) {
   />
 {/each}
 
-{#if running}
-  <h3 class="reply-heading">Reply</h3>
-  <p class="notice" role="status">
-    Waiting for the reply. It shows here when the call ends; the Raw tab has
-    the request as sent.
-  </p>
-{:else if llm.output}
-  <h3 class="reply-heading">Reply</h3>
-  <Message
-    message={llm.output}
-    toolNames={names}
-    bind:open={() => open.reply ?? true, (value) => (open.reply = value)}
-  />
-{/if}
+<Reply
+  output={llm.output}
+  toolNames={names}
+  {running}
+  bind:open={() => open.reply ?? true, (value) => (open.reply = value)}
+/>
 
 {#if llm.error}
   <ErrorNotice
