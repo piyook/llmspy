@@ -1,4 +1,39 @@
+// The proxy's own rule, so the Failed chip and `?failed=1` agree.
+import { isFailed } from '../../../proxy/src/failed.js';
 import type { CallSummary } from './types.js';
+
+/** What the list is narrowed to. */
+export interface ListView {
+	project: string;
+	/** The ids that match the search, or undefined for no search (or no answer yet). */
+	matches?: ReadonlySet<string>;
+	/** Only failed calls. */
+	failedOnly: boolean;
+}
+
+/** Whether a call is in the list: in the project, matching the search, failed if asked. */
+export function isShown(
+	call: CallSummary,
+	{ project, matches, failedOnly }: ListView,
+): boolean {
+	return (
+		call.project === project &&
+		(!matches || matches.has(call.id)) &&
+		(!failedOnly || isFailed(call))
+	);
+}
+
+/** How many of a project's calls failed. */
+export function countFailed(
+	calls: Iterable<CallSummary>,
+	project: string,
+): number {
+	let count = 0;
+	for (const call of calls) {
+		if (call.project === project && isFailed(call)) count++;
+	}
+	return count;
+}
 
 /**
  * Where a call is: `waiting` for the response headers, `replying` while the

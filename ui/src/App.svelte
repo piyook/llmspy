@@ -4,6 +4,7 @@ import { SvelteMap } from 'svelte/reactivity';
 import DayHeader from './DayHeader.svelte';
 import Detail from './Detail.svelte';
 import EmptyList from './EmptyList.svelte';
+import FailedChip from './FailedChip.svelte';
 import { previousCall } from './lib/compare.js';
 import {
 	type DayGroup,
@@ -19,7 +20,12 @@ import {
 	projectNames,
 } from './lib/projects.js';
 import { fullRecord } from './lib/record.svelte.js';
-import { callState, newestFirst } from './lib/requests.js';
+import {
+	callState,
+	countFailed,
+	isShown,
+	newestFirst,
+} from './lib/requests.js';
 import type { CallSummary, Tab } from './lib/types.js';
 import ProjectTabs from './ProjectTabs.svelte';
 import RecentChips from './RecentChips.svelte';
@@ -160,12 +166,18 @@ const elsewhere = $derived(
 	}),
 );
 
+// Only the failed calls, on every tab, while the Failed chip is pressed.
+let failedOnly = $state(false);
+const failedCount = $derived(countFailed(requests.values(), project));
+
 const visible = $derived(
 	[...requests.values()]
-		.filter(
-			(call) =>
-				call.project === project &&
-				(!search || !matches || matches.has(call.id)),
+		.filter((call) =>
+			isShown(call, {
+				project,
+				matches: search ? matches : undefined,
+				failedOnly,
+			}),
 		)
 		.sort(newestFirst),
 );
@@ -190,9 +202,9 @@ $effect(() => {
 	return () => clearInterval(timer);
 });
 const groups = $derived(groupByDay(visible));
-// While searching, every day with a match is open.
+// While searching or showing failed calls, every day with one is open.
 const isOpen = (key: string) =>
-	Boolean(search) || (dayOpen.get(key) ?? key === today);
+	Boolean(search) || failedOnly || (dayOpen.get(key) ?? key === today);
 
 /** How often the window of a recent-minutes chip moves on. */
 const RECENT_TICK_MS = 5000;
@@ -324,6 +336,11 @@ async function clearRequests() {
         <button type="button" class="small-btn" onclick={() => (picking = false)}>Cancel</button>
       </p>
     {/if}
+    <FailedChip
+      pressed={failedOnly}
+      count={failedCount}
+      ontoggle={() => (failedOnly = !failedOnly)}
+    />
     {#each groups as group (group.key)}
       {@const open = isOpen(group.key)}
       {@const calls = shownCalls(group)}
@@ -355,7 +372,7 @@ async function clearRequests() {
         {/if}
       </div>
     {:else}
-      <EmptyList {project} {search} {elsewhere} onchoose={chooseProject} />
+      <EmptyList {project} {search} {failedOnly} {elsewhere} onchoose={chooseProject} />
     {/each}
   </section>
 
