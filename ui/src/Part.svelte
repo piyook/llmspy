@@ -1,16 +1,29 @@
 <script lang="ts">
+import Copyable from './Copyable.svelte';
 import type { LlmPart } from './lib/types.js';
 
 let { part, toolNames }: { part: LlmPart; toolNames: Map<string, string> } =
 	$props();
+
+const json = $derived(
+	part.type === 'tool_call'
+		? JSON.stringify(part.input, null, 2)
+		: part.type === 'other'
+			? JSON.stringify(part.raw, null, 2)
+			: '',
+);
 </script>
 
 {#if part.type === 'text'}
-  <div class="part-text">{part.text}</div>
+  <Copyable text={part.text}>
+    <div class="part-text">{part.text}</div>
+  </Copyable>
 {:else if part.type === 'thinking'}
   <details class="part-thinking">
     <summary>Thinking</summary>
-    <div class="part-text">{part.text}</div>
+    <Copyable text={part.text}>
+      <div class="part-text">{part.text}</div>
+    </Copyable>
   </details>
 {:else if part.type === 'tool_call'}
   <div class="part-tool">
@@ -18,7 +31,9 @@ let { part, toolNames }: { part: LlmPart; toolNames: Map<string, string> } =
       ⚙ tool call <code>{part.name}</code>
       <span class="part-id">{part.id}</span>
     </div>
-    <pre class="json-viewer">{JSON.stringify(part.input, null, 2)}</pre>
+    <Copyable text={json}>
+      <pre class="json-viewer">{json}</pre>
+    </Copyable>
   </div>
 {:else if part.type === 'tool_result'}
   <div class="part-tool" class:part-error={part.isError}>
@@ -29,10 +44,14 @@ let { part, toolNames }: { part: LlmPart; toolNames: Map<string, string> } =
         <span class="status-error">error</span>
       {/if}
     </div>
-    <div class="part-text part-result">{part.content}</div>
+    <Copyable text={part.content}>
+      <div class="part-text part-result">{part.content}</div>
+    </Copyable>
   </div>
 {:else if part.type === 'image'}
   <div class="part-label">[image]</div>
 {:else}
-  <pre class="json-viewer">{JSON.stringify(part.raw, null, 2)}</pre>
+  <Copyable text={json}>
+    <pre class="json-viewer">{json}</pre>
+  </Copyable>
 {/if}

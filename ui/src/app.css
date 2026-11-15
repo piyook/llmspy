@@ -643,6 +643,30 @@ body {
 	border-color: var(--accent);
 }
 
+/* A box with a Copy button, shown on hover or focus (always on touch screens). */
+.copyable {
+	position: relative;
+}
+
+.copy-btn {
+	position: absolute;
+	top: 0.25rem;
+	right: 0.25rem;
+	opacity: 0;
+}
+
+.copyable:hover > .copy-btn,
+.copy-btn:focus-visible,
+.copy-btn.shown {
+	opacity: 1;
+}
+
+@media (hover: none) {
+	.copy-btn {
+		opacity: 1;
+	}
+}
+
 /* Conversation view. */
 .notice {
 	padding: 0.5rem 0.75rem;
