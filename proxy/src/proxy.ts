@@ -1,6 +1,7 @@
 import * as http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { forwardAndCapture } from './capture.js';
+import { toMarkdown } from './conversation.js';
 import { isAllowedUiRequest } from './guard.js';
 import { exchangeParser } from './parsers/index.js';
 import { parseListRequest } from './query.js';
@@ -20,6 +21,8 @@ function isUiRoute(path: string): boolean {
 
 /** `/api/requests/<id>`: ids are UUIDs, so no decoding is needed. */
 const RECORD_PATH = /^\/api\/requests\/([\w-]+)$/;
+/** `/api/requests/<id>/conversation`: the call as Markdown. */
+const CONVERSATION_PATH = /^\/api\/requests\/([\w-]+)\/conversation$/;
 
 /**
  * One HTTP server for both jobs: `/<upstream>/...` is forwarded and captured,
@@ -79,15 +82,7 @@ export class ProxyServer {
 			this.handleClearRequests(res, url);
 			return;
 		}
-		const record = RECORD_PATH.exec(path);
-		if (record && req.method === 'GET') {
-			this.handleGetRequest(res, record[1]);
-			return;
-		}
-		if (record && req.method === 'DELETE') {
-			this.handleDeleteRequest(res, record[1]);
-			return;
-		}
+		if (this.handleRecordRoute(req, res, path)) return;
 
 		const route = resolveRoute(url, this.config.upstreams);
 		if (!route) {
@@ -110,6 +105,29 @@ export class ProxyServer {
 			},
 			onDone: parseAndPublish,
 		});
+	}
+
+	/** The routes on one call, `/api/requests/<id>...`; false when `path` is none of them. */
+	private handleRecordRoute(
+		req: http.IncomingMessage,
+		res: http.ServerResponse,
+		path: string,
+	): boolean {
+		const record = RECORD_PATH.exec(path);
+		if (record && req.method === 'GET') {
+			this.handleGetRequest(res, record[1]);
+			return true;
+		}
+		if (record && req.method === 'DELETE') {
+			this.handleDeleteRequest(res, record[1]);
+			return true;
+		}
+		const conversation = CONVERSATION_PATH.exec(path);
+		if (conversation && req.method === 'GET') {
+			this.handleGetConversation(res, conversation[1]);
+			return true;
+		}
+		return false;
 	}
 
 	private publish(captured: CapturedRequest): void {
@@ -195,6 +213,25 @@ export class ProxyServer {
 		}
 		res.writeHead(200, { 'Content-Type': 'application/json' });
 		res.end(JSON.stringify(captured));
+	}
+
+	/** `GET /api/requests/<id>/conversation`: the call as Markdown. */
+	private handleGetConversation(res: http.ServerResponse, id: string): void {
+		const captured = this.store.get(id);
+		if (!captured) {
+			this.noSuchCall(res, id);
+			return;
+		}
+		const markdown = toMarkdown(captured);
+		if (markdown === undefined) {
+			res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
+			res.end(
+				`LLMSpy: call ${id} was not read as an LLM API call; the full record is /api/requests/${id}.`,
+			);
+			return;
+		}
+		res.writeHead(200, { 'content-type': 'text/markdown; charset=utf-8' });
+		res.end(markdown);
 	}
 
 	private noSuchCall(res: http.ServerResponse, id: string): void {
