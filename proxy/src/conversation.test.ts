@@ -107,11 +107,25 @@ describe('toMarkdown', () => {
 		);
 	});
 
-	it('is undefined for a call that is not an LLM call or did not parse', () => {
+	it('is undefined for a call that is not an LLM call', () => {
 		expect(toMarkdown({ ...call, llm: undefined })).toBeUndefined();
-		expect(
-			toMarkdown({ ...call, llm: { ...llm, parseError: 'bad JSON' } }),
-		).toBeUndefined();
+	});
+
+	it('shows what was read of a call whose reply could not be read, and why', () => {
+		const text =
+			toMarkdown({
+				...call,
+				llm: {
+					...llm,
+					output: undefined,
+					parseError: 'response: Unexpected end of JSON input',
+				},
+			}) ?? '';
+		expect(text).toContain('## User\n\n');
+		expect(text).not.toContain('## Assistant (reply)');
+		expect(text).toMatch(
+			/## Error\n\nCould not read response: Unexpected end of JSON input\n$/,
+		);
 	});
 
 	it('says a call is running and shows the reply so far', () => {

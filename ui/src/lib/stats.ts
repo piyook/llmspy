@@ -1,5 +1,5 @@
 // The proxy's own counts, so the cards and `GET /api/stats` agree.
-import type { CallStats } from '../../../proxy/src/stats.js';
+import type { CallCounts } from '../../../proxy/src/stats.js';
 import { formatLatency, formatTokens } from './format.js';
 
 /** One card above the panes. */
@@ -15,7 +15,7 @@ export interface StatsCard {
 }
 
 /** The Calls, Failed, Tokens and Latency cards for `stats`. */
-export function statsCards(stats: CallStats): StatsCard[] {
+export function statsCards(stats: CallCounts): StatsCard[] {
 	const { calls, running, failed, tokens, latencyMs } = stats;
 	const cache = tokens.cacheRead > 0 || tokens.cacheWrite > 0;
 	return [
@@ -54,8 +54,13 @@ export function statsCards(stats: CallStats): StatsCard[] {
 	];
 }
 
-/** `3%`; `<1%` for a share above 0 that rounds to 0. */
+/**
+ * `3%`; `<1%` for a share above 0 that rounds to 0, and `>99%` for a share
+ * below the whole that rounds to 100.
+ */
 function percent(part: number, whole: number): string {
 	const share = Math.round((part / whole) * 100);
-	return share === 0 && part > 0 ? '<1%' : `${share}%`;
+	if (share === 0 && part > 0) return '<1%';
+	if (share === 100 && part < whole) return '>99%';
+	return `${share}%`;
 }

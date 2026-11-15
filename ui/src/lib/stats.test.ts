@@ -1,18 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import type { CallStats } from '../../../proxy/src/stats.js';
+import type { CallCounts } from '../../../proxy/src/stats.js';
 import { statsCards } from './stats.js';
 
-const none: CallStats = {
+const none: CallCounts = {
 	calls: 0,
 	running: 0,
 	failed: 0,
 	tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 	latencyMs: null,
-	byModel: {},
-	byProject: {},
 };
 
-const card = (stats: CallStats, label: string) =>
+const card = (stats: CallCounts, label: string) =>
 	statsCards(stats).find((c) => c.label === label);
 
 describe('statsCards', () => {
@@ -51,6 +49,12 @@ describe('statsCards', () => {
 		);
 		expect(card({ ...none, calls: 500, failed: 1 }, 'Failed')?.detail).toBe(
 			'<1%',
+		);
+		expect(
+			card({ ...none, calls: 400, failed: 399 }, 'Failed')?.detail,
+		).toBe('>99%');
+		expect(card({ ...none, calls: 4, failed: 4 }, 'Failed')?.detail).toBe(
+			'100%',
 		);
 	});
 

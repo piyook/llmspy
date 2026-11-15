@@ -7,31 +7,25 @@ export interface ListView {
 	project: string;
 	/** The ids that match the search, or undefined for no search (or no answer yet). */
 	matches?: ReadonlySet<string>;
-	/** Only failed calls. */
-	failedOnly: boolean;
 }
 
-/** Whether a call is in the list: in the project, matching the search, failed if asked. */
+/** Whether a call is in the list: in the project and matching the search. */
 export function isShown(
 	call: CallSummary,
-	{ project, matches, failedOnly }: ListView,
+	{ project, matches }: ListView,
 ): boolean {
-	return (
-		call.project === project &&
-		(!matches || matches.has(call.id)) &&
-		(!failedOnly || isFailed(call))
-	);
+	return call.project === project && (!matches || matches.has(call.id));
 }
 
-/** How many of a project's calls failed. */
-export function countFailed(
-	calls: Iterable<CallSummary>,
-	project: string,
-): number {
+/** The calls that failed, in order. */
+export function onlyFailed(calls: CallSummary[]): CallSummary[] {
+	return calls.filter(isFailed);
+}
+
+/** How many of the calls failed. */
+export function countFailed(calls: Iterable<CallSummary>): number {
 	let count = 0;
-	for (const call of calls) {
-		if (call.project === project && isFailed(call)) count++;
-	}
+	for (const call of calls) if (isFailed(call)) count++;
 	return count;
 }
 

@@ -58,12 +58,15 @@ function countBy(
 		if (group) group.push(summary);
 		else groups.set(name, [summary]);
 	}
-	const counts: Record<string, CallCounts> = {};
-	for (const [name, group] of groups) counts[name] = toCounts(group);
-	return counts;
+	// fromEntries defines each key as its own property, so a model named
+	// `__proto__` is a key like any other rather than setting the prototype.
+	return Object.fromEntries(
+		[...groups].map(([name, group]) => [name, toCounts(group)]),
+	);
 }
 
-function toCounts(summaries: CallSummary[]): CallCounts {
+/** The counts over `summaries`, without the per-model and per-project ones. */
+export function toCounts(summaries: CallSummary[]): CallCounts {
 	const tokens: TokenTotals = {
 		input: 0,
 		output: 0,
