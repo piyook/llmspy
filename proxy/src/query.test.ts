@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseListRequest } from './query.js';
+import { parseListRequest, parseStatsRequest, parseWait } from './query.js';
 
 const parse = (query: string) => parseListRequest(new URLSearchParams(query));
 
@@ -18,15 +18,46 @@ describe('parseListRequest', () => {
 
 	it('reads every parameter', () => {
 		expect(
-			parse('project=my-app&q=hello&since=1000&limit=5&full=1'),
+			parse(
+				'project=my-app&q=hello&since=1000&limit=5&full=1&model=Sonnet&status=429&failed=1',
+			),
 		).toEqual({
 			query: {
 				project: 'my-app',
 				search: 'hello',
 				since: 1000,
 				limit: 5,
+				model: 'Sonnet',
+				status: '429',
+				failed: true,
 			},
 			full: true,
+		});
+	});
+
+	it('takes a status class', () => {
+		expect(parse('status=5xx')).toMatchObject({ query: { status: '5xx' } });
+	});
+
+	it('refuses a status that is not a code or a class', () => {
+		for (const status of ['', '42', '4299', '600', '099', 'x5x', '5XX']) {
+			expect(parse(`status=${status}`)).toEqual({
+				error: expect.stringContaining('status must be'),
+			});
+		}
+	});
+
+	it('refuses a failed that is not 1', () => {
+		for (const failed of ['', '0', 'true']) {
+			expect(parse(`failed=${failed}`)).toEqual({
+				error: expect.stringContaining('failed must be 1'),
+			});
+		}
+	});
+
+	it('refuses an empty model', () => {
+		expect(parse('model=')).toEqual({
+			error: expect.stringContaining('model must not be empty'),
 		});
 	});
 
@@ -73,5 +104,55 @@ describe('parseListRequest', () => {
 		expect(parse('project=Not%20One')).toEqual({
 			error: expect.stringContaining('is not a project name'),
 		});
+	});
+});
+
+describe('parseStatsRequest', () => {
+	const stats = (query: string) =>
+		parseStatsRequest(new URLSearchParams(query));
+
+	it('reads the filters of the list', () => {
+		expect(stats('project=my-app&q=hi&since=1000&failed=1')).toEqual({
+			query: {
+				project: 'my-app',
+				search: 'hi',
+				since: 1000,
+				limit: undefined,
+				failed: true,
+			},
+		});
+	});
+
+	it('refuses limit and full, and a filter it can not read', () => {
+		expect(stats('limit=5')).toEqual({
+			error: 'limit does not apply to /api/stats.',
+		});
+		expect(stats('full=1')).toEqual({
+			error: 'full does not apply to /api/stats.',
+		});
+		expect(stats('status=4x')).toEqual({
+			error: expect.stringContaining('status must be'),
+		});
+	});
+});
+
+describe('parseWait', () => {
+	const wait = (query: string) => parseWait(new URLSearchParams(query));
+
+	it('does not wait when nothing is asked', () => {
+		expect(wait('')).toEqual({});
+	});
+
+	it('reads whole seconds from 1 to 300', () => {
+		expect(wait('wait=1')).toEqual({ seconds: 1 });
+		expect(wait('wait=300')).toEqual({ seconds: 300 });
+	});
+
+	it('refuses anything else', () => {
+		for (const seconds of ['', '0', '301', '-1', '1.5', 'yes', '05']) {
+			expect(wait(`wait=${seconds}`)).toEqual({
+				error: expect.stringContaining('wait must be'),
+			});
+		}
 	});
 });

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { callState, quietFor } from './requests.js';
+import {
+	callState,
+	countFailed,
+	isShown,
+	onlyFailed,
+	quietFor,
+} from './requests.js';
 import type { CapturedRequest } from './types.js';
 
 const base: CapturedRequest = {
@@ -15,6 +21,43 @@ const base: CapturedRequest = {
 	timings: { start: 1000 },
 };
 const response = { status: 200, headers: {}, body: '' };
+
+describe('isShown', () => {
+	const failed: CapturedRequest = {
+		...base,
+		id: 'f',
+		error: 'stream broke off',
+	};
+	const view = { project: 'general' };
+
+	it("shows the project's calls only", () => {
+		expect(isShown(base, view)).toBe(true);
+		expect(isShown({ ...base, project: 'other' }, view)).toBe(false);
+	});
+
+	it('shows only the matches of a search', () => {
+		const matches = new Set(['f']);
+		expect(isShown(failed, { ...view, matches })).toBe(true);
+		expect(isShown(base, { ...view, matches })).toBe(false);
+	});
+});
+
+describe('onlyFailed and countFailed', () => {
+	const calls: CapturedRequest[] = [
+		{ ...base, id: 'ok', response },
+		{ ...base, id: '500', response: { ...response, status: 500 } },
+		{ ...base, id: 'broke', error: 'stream broke off' },
+	];
+
+	it('keeps the failed calls, in order', () => {
+		expect(onlyFailed(calls).map(({ id }) => id)).toEqual(['500', 'broke']);
+	});
+
+	it('counts the failed calls', () => {
+		expect(countFailed(calls)).toBe(2);
+		expect(countFailed([])).toBe(0);
+	});
+});
 
 describe('callState', () => {
 	it('is waiting until the response headers arrive', () => {

@@ -1,6 +1,6 @@
 # LLMSpy
 
-A lightweight local developer tool that shows LLM API traffic in real time, with next to no setup.
+A lightweight local developer tool that shows LLM API traffic in real time, with next to no setup, to you in a web UI and to coding agents through a small local API.
 
 - **Live capture**: every call to Anthropic, OpenAI or any other upstream you add shows up as soon as it is sent and is filled in when the reply ends, and streamed replies still stream to the app
 - **Conversation view**: system prompt, tools, messages, tool calls matched to their results, and the reply with its stop reason and token use
@@ -8,7 +8,8 @@ A lightweight local developer tool that shows LLM API traffic in real time, with
 - **Compare**: diff a call against the one before it, or any other, to see what an agent changed between turns
 - **Projects**: tag each app's base URL to give its calls their own tab
 - **Reads three formats**: Anthropic Messages, OpenAI Chat Completions and OpenAI Responses, streamed or not
-- **Kept across restarts**: the last 7 days of calls, in one file on your machine, listed by day with older days folded away, and today's narrowed to the last 5 to 90 minutes in one click
+- **Kept across restarts**: the last 7 days of calls, in one file on your machine, listed by day with older days folded away, today's narrowed to the last 5 to 90 minutes in one click, and the failed ones in another
+- **Agent friendly**: coding agents and scripts can list, search and read the captured calls as JSON, or one call as Markdown, count their tokens, failures and latency, and wait for a running call to end, from the same port; [llms.txt](llms.txt) tells them how
 - **Lightweight**: one command to start, one base URL to set in your app; no certificates or accounts
 
 ![LLMSpy showing a coding agent's call as a conversation: the user's question, the assistant's tool calls and the tool results](docs/screenshots/conversation.png)
@@ -25,6 +26,7 @@ Use it to:
 - debug failing or odd requests: errors, status codes, latency
 - understand token-heavy calls and why they cost what they do
 - compare what different tools send for the same task
+- let a coding agent check what an app it is building or debugging really sent and got back, without you copying anything across
 
 It is deliberately small, and quick to set up:
 
@@ -41,6 +43,14 @@ Every call appears in the list on the left as soon as it is sent, newest first, 
 The list is grouped by day, with older days folded away. The chips under Today show only its calls from the last 5 to 90 minutes, such as one run of an agent, and its heading counts how many are shown.
 
 <img src="docs/screenshots/days.png" width="300" alt="The call list narrowed to the last 15 minutes: Today shows 3 of 15 calls, with Yesterday and Thu 12 Nov folded below">
+
+When a project has calls that went wrong, a red **Failed** chip above the list counts them; press it to see only those, on every day. A call has failed when the upstream could not be reached or its reply broke off, when its status is 400 or above, or when the provider sent an error inside the reply. Agents get the same calls from `GET /api/requests?failed=1`.
+
+<img src="docs/screenshots/failed.png" width="300" alt="The Failed chip pressed: the list shows only the failed calls, two 429s, two errors in the stream and two dropped streams">
+
+Cards above the panes count the calls in the list as it is narrowed (by project, search, the Failed chip and the minutes chips): how many there are and how many are running, how many failed, their tokens in, out and cached, and their p50 and p95 latency. They update live, and agree with `GET /api/stats`.
+
+<img src="docs/screenshots/cards.png" alt="The cards above the panes for the general project: 54 calls, 18 failed (33%, in red), 990 tokens in and 996 out, latency p50 16ms and p95 801ms">
 
 Select a call to look at it three ways.
 
@@ -98,7 +108,7 @@ Calls without a tag go to `general`. A project name is lowercase letters, digits
 
 ![Project tabs under the header: general, site-agent (selected, its calls listed) and support-bot with a badge for two new calls](docs/screenshots/projects.png)
 
-For coding agents and scripts, [llms.txt](llms.txt) is a compact reference: how to run LLMSpy, point an app at it, and read the captured traffic as JSON.
+For coding agents and scripts, [llms.txt](llms.txt) is a compact reference: how to run LLMSpy, point an app at it, and read the captured traffic as JSON, or one call as Markdown, and wait for a call that is still running.
 
 ## Upstreams
 
@@ -179,7 +189,7 @@ The file holds whole prompts and replies (API keys are masked), so treat it like
 
 ## How it works
 
-- `proxy/`: one Node HTTP server. `/<prefix>/...` (or `/@<project>/<prefix>/...`) is forwarded to the upstream with the bytes unchanged, chunk by chunk, while a copy of each body is kept, decompressed (gzip, deflate, br, zstd) and decoded for display. `/events` (Server-Sent Events of call summaries), `/api/requests` (summaries, with `?project=`, `?q=` search, `?since=`, `?limit=` and `?full=1` for full records), `GET`/`DELETE /api/requests/<id>` (one full record), `/api/upstreams` (each prefix and where it forwards to) and `/api/clear` serve the UI, and any other path is a file from the built UI (`ui/dist`). Calls are stored with `node:sqlite`; a running call is held in memory and written when it starts, when its response headers arrive and when it ends.
+- `proxy/`: one Node HTTP server. `/<prefix>/...` (or `/@<project>/<prefix>/...`) is forwarded to the upstream with the bytes unchanged, chunk by chunk, while a copy of each body is kept, decompressed (gzip, deflate, br, zstd) and decoded for display. `/events` (Server-Sent Events of call summaries), `/api/requests` (summaries, with `?project=`, `?q=` search, `?since=`, `?model=`, `?status=`, `?failed=1`, `?limit=` and `?full=1` for full records), `/api/stats` (calls, failures, tokens and latency over the same filters, per model and project), `GET`/`DELETE /api/requests/<id>` (one full record), `/api/requests/<id>/conversation` (the call as Markdown; both reads take `?wait=<seconds>` to answer once a running call ends), `/api/upstreams` (each prefix and where it forwards to) and `/api/clear` serve the UI, and any other path is a file from the built UI (`ui/dist`). Calls are stored with `node:sqlite`; a running call is held in memory and written when it starts, when its response headers arrive and when it ends.
 - `ui/`: Svelte and Vite.
 
 ## Development

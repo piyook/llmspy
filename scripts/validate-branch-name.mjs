@@ -12,15 +12,16 @@ const branchNames = args.length
 				execSync('git rev-parse --abbrev-ref HEAD').toString().trim(),
 		];
 
-// Work branches reach `main` by pull request.
+// Work branches reach `dev` by pull request, and `dev` reaches `main` the same way.
 const invalid = branchNames.filter(
-	(name) => !/^main$|^(feat|fix|hotfix|release|chore|docs)\/.+$/.test(name),
+	(name) =>
+		!/^(main|dev)$|^(feat|fix|hotfix|release|chore|docs)\/.+$/.test(name),
 );
 
 if (invalid.length) {
 	for (const name of invalid) {
 		console.error(
-			`Error: INVALID BRANCH NAME '${name}': use 'main' or 'feat|fix|hotfix|release|chore|docs/your-branch-name'`,
+			`Error: INVALID BRANCH NAME '${name}': use 'main', 'dev' or 'feat|fix|hotfix|release|chore|docs/your-branch-name'`,
 		);
 	}
 	process.exit(1);

@@ -67,6 +67,14 @@ const base = $derived(`${location.protocol}//${address ?? DEFAULT_ADDRESS}`);
         The chips under Today show only the calls of the last 5 to 90
         minutes.
       </li>
+      <li>
+        The red Failed chip shows only the calls that went wrong: an error,
+        a status of 400 or above, or an error inside the reply.
+      </li>
+      <li>
+        The cards at the top count the calls in the list: how many, how many
+        failed, their tokens and their latency.
+      </li>
       <li>API keys are masked. Prompts and replies are shown in full.</li>
       <li>
         Calls are kept in a file on your machine, so they survive a restart:

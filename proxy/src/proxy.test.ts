@@ -606,6 +606,37 @@ describe('ProxyServer', () => {
 			expect(records[0].response.body).toBe('{"reply":"Bonjour"}');
 		});
 
+		it('keeps the failed calls with ?failed=1, and one status with ?status=', async () => {
+			const upstream = await startUpstream((req, res) => {
+				req.resume();
+				res.statusCode = req.url?.includes('limited') ? 429 : 200;
+				res.end('{}');
+			});
+			const { base, store } = await startProxy(upstream);
+			for (const path of ['/fake/ok', '/fake/limited', '/fake/ok']) {
+				await readAll(
+					await request(`${base}${path}`, { method: 'POST' }),
+				);
+			}
+			await vi.waitFor(() =>
+				expect(
+					store.getRequests().filter(({ timings }) => timings.end),
+				).toHaveLength(3),
+			);
+			const paths = async (query: string) =>
+				JSON.parse(
+					(
+						await readAll(
+							await request(`${base}/api/requests${query}`),
+						)
+					).toString(),
+				).map(({ path }: { path: string }) => path);
+
+			expect(await paths('?failed=1')).toEqual(['/limited']);
+			expect(await paths('?status=4xx')).toEqual(['/limited']);
+			expect(await paths('?status=200&limit=1')).toEqual(['/ok']);
+		});
+
 		it('answers 400 to a parameter it can not read', async () => {
 			const { list } = await proxyWithThreeCalls();
 			for (const query of [
@@ -613,10 +644,72 @@ describe('ProxyServer', () => {
 				'?since=yesterday',
 				'?limit=0',
 				'?full=true',
+				'?status=4x',
+				'?failed=0',
+				'?model=',
 			]) {
 				const { status, body } = await list(query);
 				expect(status).toBe(400);
 				expect(body).toMatch(/^LLMSpy: /);
+			}
+		});
+	});
+
+	describe('/api/stats', () => {
+		it('counts the calls the filters match, per project too', async () => {
+			const upstream = await startUpstream((req, res) => {
+				req.resume();
+				res.statusCode = req.url?.includes('limited') ? 429 : 200;
+				res.end('{}');
+			});
+			const { base, store } = await startProxy(upstream);
+			for (const path of [
+				'/fake/ok',
+				'/@my-app/fake/limited',
+				'/@my-app/fake/ok',
+			]) {
+				await readAll(
+					await request(`${base}${path}`, { method: 'POST' }),
+				);
+			}
+			await vi.waitFor(() =>
+				expect(
+					store.getRequests().filter(({ timings }) => timings.end),
+				).toHaveLength(3),
+			);
+			const stats = async (query: string) => {
+				const res = await request(`${base}/api/stats${query}`);
+				return {
+					status: res.statusCode,
+					body: (await readAll(res)).toString(),
+				};
+			};
+
+			const all = JSON.parse((await stats('')).body);
+			expect(all).toMatchObject({ calls: 3, running: 0, failed: 1 });
+			expect(all.byModel.none.calls).toBe(3);
+			expect(all.byProject.general.calls).toBe(1);
+			expect(all.byProject['my-app']).toMatchObject({
+				calls: 2,
+				failed: 1,
+			});
+			expect(all.latencyMs.max).toBeGreaterThanOrEqual(all.latencyMs.p50);
+
+			const mine = JSON.parse(
+				(await stats('?project=my-app&failed=1')).body,
+			);
+			expect(mine).toMatchObject({ calls: 1, failed: 1 });
+			expect(Object.keys(mine.byProject)).toEqual(['my-app']);
+		});
+
+		it('answers 400 to limit, full and a filter it can not read', async () => {
+			const { base } = await startProxy(
+				await startUpstream((_req, res) => res.end()),
+			);
+			for (const query of ['?limit=5', '?full=1', '?status=4x']) {
+				const res = await request(`${base}/api/stats${query}`);
+				expect(res.statusCode).toBe(400);
+				expect((await readAll(res)).toString()).toMatch(/^LLMSpy: /);
 			}
 		});
 	});
@@ -652,6 +745,211 @@ describe('ProxyServer', () => {
 		const res = await request(`${base}/api/requests/no-such-id`);
 		expect(res.statusCode).toBe(404);
 		expect((await readAll(res)).toString()).toMatch(/no captured call/);
+	});
+
+	it('returns a call as Markdown from /api/requests/<id>/conversation', async () => {
+		const upstream = await startUpstream((req, res) => {
+			req.resume();
+			res.setHeader('content-type', 'application/json');
+			res.end(
+				'{"model":"claude-test","content":[{"type":"text","text":"Bonjour"}],"stop_reason":"end_turn"}',
+			);
+		});
+		const { base, store } = await startProxy(upstream);
+		await readAll(
+			await request(`${base}/fake/v1/messages`, {
+				method: 'POST',
+				body: '{"model":"claude-test","messages":[{"role":"user","content":"Hello"}]}',
+			}),
+		);
+		await vi.waitFor(() =>
+			expect(store.getRequests()[0]?.timings.end).toBeDefined(),
+		);
+		const [{ id }] = store.getRequests();
+
+		const res = await request(`${base}/api/requests/${id}/conversation`);
+		expect(res.statusCode).toBe(200);
+		expect(res.headers['content-type']).toBe(
+			'text/markdown; charset=utf-8',
+		);
+		const text = (await readAll(res)).toString();
+		expect(text).toMatch(/^# claude-test · anthropic-messages\n/);
+		expect(text).toContain(
+			'## User\n\nHello\n\n## Assistant (reply)\n\nBonjour\n',
+		);
+	});
+
+	it('answers 404 with a pointer to the record for a call that is not an LLM call', async () => {
+		const upstream = await startUpstream((req, res) => {
+			req.resume();
+			res.end('{}');
+		});
+		const { base, store } = await startProxy(upstream);
+		await readAll(await request(`${base}/fake/other`));
+		await vi.waitFor(() =>
+			expect(store.getRequests()[0]?.timings.end).toBeDefined(),
+		);
+		const [{ id }] = store.getRequests();
+
+		const res = await request(`${base}/api/requests/${id}/conversation`);
+		expect(res.statusCode).toBe(404);
+		expect((await readAll(res)).toString()).toContain(
+			`/api/requests/${id}.`,
+		);
+
+		const missing = await request(
+			`${base}/api/requests/no-such-id/conversation`,
+		);
+		expect(missing.statusCode).toBe(404);
+		expect((await readAll(missing)).toString()).toMatch(/no captured call/);
+	});
+
+	describe('?wait= on one call', () => {
+		const REPLY =
+			'{"model":"claude-test","content":[{"type":"text","text":"Bonjour"}],"stop_reason":"end_turn"}';
+
+		/** A proxy holding one call whose upstream answers on `release()`. */
+		async function proxyWithRunningCall() {
+			let release = () => {};
+			const released = new Promise<void>((resolve) => {
+				release = resolve;
+			});
+			const upstream = await startUpstream(async (req, res) => {
+				req.resume();
+				await released;
+				res.setHeader('content-type', 'application/json');
+				res.end(REPLY);
+			});
+			const { base, store } = await startProxy(upstream);
+			const call = request(`${base}/fake/v1/messages`, {
+				method: 'POST',
+				body: '{"model":"claude-test","messages":[{"role":"user","content":"Hello"}]}',
+			});
+			const { id } = await onlyCaptured(store);
+			const finish = async () => {
+				release();
+				await readAll(await call);
+			};
+			return { base, id, finish };
+		}
+
+		/** Whether `answer` is still unanswered after a short while. */
+		async function stillWaiting(
+			answer: Promise<unknown>,
+		): Promise<boolean> {
+			const pause = new Promise((resolve) =>
+				setTimeout(() => resolve('waiting'), 200),
+			);
+			return (await Promise.race([answer, pause])) === 'waiting';
+		}
+
+		it('answers both routes when the call ends', async () => {
+			const { base, id, finish } = await proxyWithRunningCall();
+
+			const record = request(`${base}/api/requests/${id}?wait=5`);
+			const markdown = request(
+				`${base}/api/requests/${id}/conversation?wait=5`,
+			);
+			expect(await stillWaiting(record)).toBe(true);
+			expect(await stillWaiting(markdown)).toBe(true);
+
+			await finish();
+			const recordRes = await record;
+			expect(recordRes.statusCode).toBe(200);
+			const captured = JSON.parse((await readAll(recordRes)).toString());
+			expect(captured.timings.end).toBeDefined();
+			expect(captured.response.body).toBe(REPLY);
+
+			const markdownRes = await markdown;
+			expect(markdownRes.statusCode).toBe(200);
+			expect((await readAll(markdownRes)).toString()).toContain(
+				'## Assistant (reply)\n\nBonjour\n',
+			);
+		});
+
+		it('answers with the call so far when the wait runs out', async () => {
+			const { base, id, finish } = await proxyWithRunningCall();
+
+			const started = Date.now();
+			const [recordRes, markdownRes] = await Promise.all([
+				request(`${base}/api/requests/${id}?wait=1`),
+				request(`${base}/api/requests/${id}/conversation?wait=1`),
+			]);
+			expect(Date.now() - started).toBeGreaterThanOrEqual(950);
+
+			expect(recordRes.statusCode).toBe(200);
+			const captured = JSON.parse((await readAll(recordRes)).toString());
+			expect(captured.id).toBe(id);
+			expect(captured.timings.end).toBeUndefined();
+
+			expect(markdownRes.statusCode).toBe(200);
+			expect((await readAll(markdownRes)).toString()).toContain(
+				'running',
+			);
+			await finish();
+		});
+
+		it('answers 404 when the call is deleted while waiting', async () => {
+			const { base, id, finish } = await proxyWithRunningCall();
+
+			const record = request(`${base}/api/requests/${id}?wait=5`);
+			expect(await stillWaiting(record)).toBe(true);
+			await readAll(
+				await request(`${base}/api/requests/${id}`, {
+					method: 'DELETE',
+				}),
+			);
+
+			const res = await record;
+			expect(res.statusCode).toBe(404);
+			expect((await readAll(res)).toString()).toMatch(/no captured call/);
+			await finish();
+		});
+
+		it('answers 404 when the call is cleared while waiting', async () => {
+			const { base, id, finish } = await proxyWithRunningCall();
+
+			const markdown = request(
+				`${base}/api/requests/${id}/conversation?wait=5`,
+			);
+			expect(await stillWaiting(markdown)).toBe(true);
+			await readAll(
+				await request(`${base}/api/clear`, { method: 'POST' }),
+			);
+
+			const res = await markdown;
+			expect(res.statusCode).toBe(404);
+			await readAll(res);
+			await finish();
+		});
+
+		it('answers at once for a call that ended or is unknown, and 400 to a bad wait', async () => {
+			const upstream = await startUpstream((req, res) => {
+				req.resume();
+				res.end('{}');
+			});
+			const { base, store } = await startProxy(upstream);
+			await readAll(await request(`${base}/fake/v1/messages`));
+			await vi.waitFor(() =>
+				expect(store.getRequests()[0]?.timings.end).toBeDefined(),
+			);
+			const [{ id }] = store.getRequests();
+
+			const started = Date.now();
+			const ended = await request(`${base}/api/requests/${id}?wait=300`);
+			expect(ended.statusCode).toBe(200);
+			await readAll(ended);
+			const unknown = await request(
+				`${base}/api/requests/no-such-id?wait=300`,
+			);
+			expect(unknown.statusCode).toBe(404);
+			await readAll(unknown);
+			expect(Date.now() - started).toBeLessThan(1000);
+
+			const bad = await request(`${base}/api/requests/${id}?wait=yes`);
+			expect(bad.statusCode).toBe(400);
+			expect((await readAll(bad)).toString()).toMatch(/wait must be/);
+		});
 	});
 
 	it('ignores a query string on the UI routes', async () => {

@@ -1,10 +1,12 @@
 import * as http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { forwardAndCapture } from './capture.js';
+import { toMarkdown } from './conversation.js';
 import { isAllowedUiRequest } from './guard.js';
 import { exchangeParser } from './parsers/index.js';
-import { parseListRequest } from './query.js';
+import { parseListRequest, parseStatsRequest, parseWait } from './query.js';
 import { serveStatic } from './static.js';
+import { toStats } from './stats.js';
 import type { RequestStore } from './store.js';
 import { toSummary } from './summary.js';
 import type { CapturedRequest, ProxyConfig } from './types.js';
@@ -20,6 +22,8 @@ function isUiRoute(path: string): boolean {
 
 /** `/api/requests/<id>`: ids are UUIDs, so no decoding is needed. */
 const RECORD_PATH = /^\/api\/requests\/([\w-]+)$/;
+/** `/api/requests/<id>/conversation`: the call as Markdown. */
+const CONVERSATION_PATH = /^\/api\/requests\/([\w-]+)\/conversation$/;
 
 /**
  * One HTTP server for both jobs: `/<upstream>/...` is forwarded and captured,
@@ -30,6 +34,8 @@ export class ProxyServer {
 	private readonly config: ProxyConfig;
 	private readonly store: RequestStore;
 	private readonly sseClients = new Set<http.ServerResponse>();
+	/** Reads held by `?wait=` until their call ends, by call id: each answers once. */
+	private readonly waiting = new Map<string, Set<() => void>>();
 
 	constructor(config: ProxyConfig, store: RequestStore) {
 		this.config = config;
@@ -70,6 +76,10 @@ export class ProxyServer {
 			this.handleGetRequests(res, url);
 			return;
 		}
+		if (path === '/api/stats') {
+			this.handleGetStats(res, url);
+			return;
+		}
 		if (path === '/api/upstreams') {
 			res.writeHead(200, { 'Content-Type': 'application/json' });
 			res.end(JSON.stringify(listUpstreams(this.config.upstreams)));
@@ -79,15 +89,7 @@ export class ProxyServer {
 			this.handleClearRequests(res, url);
 			return;
 		}
-		const record = RECORD_PATH.exec(path);
-		if (record && req.method === 'GET') {
-			this.handleGetRequest(res, record[1]);
-			return;
-		}
-		if (record && req.method === 'DELETE') {
-			this.handleDeleteRequest(res, record[1]);
-			return;
-		}
+		if (this.handleRecordRoute(req, res, url, path)) return;
 
 		const route = resolveRoute(url, this.config.upstreams);
 		if (!route) {
@@ -112,9 +114,98 @@ export class ProxyServer {
 		});
 	}
 
+	/** The routes on one call, `/api/requests/<id>...`; false when `path` is none of them. */
+	private handleRecordRoute(
+		req: http.IncomingMessage,
+		res: http.ServerResponse,
+		url: string,
+		path: string,
+	): boolean {
+		const record = RECORD_PATH.exec(path);
+		if (record && req.method === 'DELETE') {
+			this.handleDeleteRequest(res, record[1]);
+			return true;
+		}
+		if (req.method !== 'GET') return false;
+		if (record) {
+			const id = record[1];
+			this.handleRead(res, url, id, () => this.handleGetRequest(res, id));
+			return true;
+		}
+		const conversation = CONVERSATION_PATH.exec(path);
+		if (conversation) {
+			const id = conversation[1];
+			this.handleRead(res, url, id, () =>
+				this.handleGetConversation(res, id),
+			);
+			return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Answers a read of one call with `answer`: at once, or with `?wait=` once
+	 * a running call ends. A call that ended, or is unknown, is answered at once.
+	 */
+	private handleRead(
+		res: http.ServerResponse,
+		url: string,
+		id: string,
+		answer: () => void,
+	): void {
+		const asked = parseWait(new URLSearchParams(url.split('?')[1]));
+		if ('error' in asked) {
+			this.badRequest(res, asked.error);
+			return;
+		}
+		const captured = this.store.get(id);
+		if (
+			asked.seconds === undefined ||
+			captured === undefined ||
+			captured.timings.end !== undefined
+		) {
+			answer();
+			return;
+		}
+		this.holdUntilEnded(res, id, asked.seconds, answer);
+	}
+
+	/**
+	 * Holds `answer` until `wake(id)` or `seconds` run out, when it answers
+	 * with the call as it is then. A client that hangs up is forgotten.
+	 */
+	private holdUntilEnded(
+		res: http.ServerResponse,
+		id: string,
+		seconds: number,
+		answer: () => void,
+	): void {
+		const waiters = this.waiting.get(id) ?? new Set<() => void>();
+		this.waiting.set(id, waiters);
+		const forget = (): void => {
+			clearTimeout(timer);
+			res.off('close', forget);
+			waiters.delete(release);
+			if (waiters.size === 0) this.waiting.delete(id);
+		};
+		const release = (): void => {
+			forget();
+			answer();
+		};
+		const timer = setTimeout(release, seconds * 1000);
+		res.on('close', forget);
+		waiters.add(release);
+	}
+
+	/** Answers every read waiting on call `id`, with the call as it is now. */
+	private wake(id: string): void {
+		for (const release of [...(this.waiting.get(id) ?? [])]) release();
+	}
+
 	private publish(captured: CapturedRequest): void {
 		this.store.addRequest(captured);
 		this.broadcast(captured);
+		if (captured.timings.end !== undefined) this.wake(captured.id);
 	}
 
 	private async handleStaticOrNotFound(
@@ -175,8 +266,7 @@ export class ProxyServer {
 	private handleGetRequests(res: http.ServerResponse, url: string): void {
 		const asked = parseListRequest(new URLSearchParams(url.split('?')[1]));
 		if ('error' in asked) {
-			res.writeHead(400, { 'content-type': 'text/plain; charset=utf-8' });
-			res.end(`LLMSpy: ${asked.error}`);
+			this.badRequest(res, asked.error);
 			return;
 		}
 		const calls = asked.full
@@ -184,6 +274,17 @@ export class ProxyServer {
 			: this.store.summaries(asked.query);
 		res.writeHead(200, { 'Content-Type': 'application/json' });
 		res.end(JSON.stringify(calls));
+	}
+
+	/** `GET /api/stats`: counts over the calls the filters of `GET /api/requests` match. */
+	private handleGetStats(res: http.ServerResponse, url: string): void {
+		const asked = parseStatsRequest(new URLSearchParams(url.split('?')[1]));
+		if ('error' in asked) {
+			this.badRequest(res, asked.error);
+			return;
+		}
+		res.writeHead(200, { 'Content-Type': 'application/json' });
+		res.end(JSON.stringify(toStats(this.store.summaries(asked.query))));
 	}
 
 	/** `GET /api/requests/<id>`: the full record. */
@@ -197,9 +298,33 @@ export class ProxyServer {
 		res.end(JSON.stringify(captured));
 	}
 
+	/** `GET /api/requests/<id>/conversation`: the call as Markdown. */
+	private handleGetConversation(res: http.ServerResponse, id: string): void {
+		const captured = this.store.get(id);
+		if (!captured) {
+			this.noSuchCall(res, id);
+			return;
+		}
+		const markdown = toMarkdown(captured);
+		if (markdown === undefined) {
+			res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
+			res.end(
+				`LLMSpy: call ${id} was not read as an LLM API call; the full record is /api/requests/${id}.`,
+			);
+			return;
+		}
+		res.writeHead(200, { 'content-type': 'text/markdown; charset=utf-8' });
+		res.end(markdown);
+	}
+
 	private noSuchCall(res: http.ServerResponse, id: string): void {
 		res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
 		res.end(`LLMSpy: no captured call ${id}.`);
+	}
+
+	private badRequest(res: http.ServerResponse, message: string): void {
+		res.writeHead(400, { 'content-type': 'text/plain; charset=utf-8' });
+		res.end(`LLMSpy: ${message}`);
 	}
 
 	private handlePing(res: http.ServerResponse): void {
@@ -223,11 +348,14 @@ export class ProxyServer {
 		const project =
 			new URLSearchParams(url.split('?')[1]).get('project') ?? undefined;
 		if (project !== undefined && !isProjectName(project)) {
-			res.writeHead(400, { 'content-type': 'text/plain; charset=utf-8' });
-			res.end(`LLMSpy: "${project}" is not a project name.`);
+			this.badRequest(res, `"${project}" is not a project name.`);
 			return;
 		}
 		this.store.clear(project);
+		// Reads waiting on a cleared call now find nothing, and say so.
+		for (const id of [...this.waiting.keys()]) {
+			if (this.store.get(id) === undefined) this.wake(id);
+		}
 		// Named, so a client that only reads records (`onmessage`) ignores it.
 		// No `project` means every project was cleared.
 		this.sendToClients(
@@ -242,6 +370,7 @@ export class ProxyServer {
 			this.noSuchCall(res, id);
 			return;
 		}
+		this.wake(id);
 		// Named like `clear`, so every tab drops the row.
 		this.sendToClients(
 			`event: delete\ndata: ${JSON.stringify({ id })}\n\n`,
@@ -262,6 +391,7 @@ export class ProxyServer {
 	}
 
 	public stop(): Promise<void> {
+		for (const id of [...this.waiting.keys()]) this.wake(id);
 		for (const client of this.sseClients) client.end();
 		this.sseClients.clear();
 		return new Promise((resolve) => {

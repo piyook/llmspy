@@ -19,6 +19,8 @@
 	--success: #2e7d32;
 	--warning: #b26a00;
 	--danger: #d32f2f;
+	/* A red that white text reads well on (4.5:1 or more). */
+	--danger-fill: #d32f2f;
 	--danger-button: #e53935;
 	--danger-button-hover: #c62828;
 	--on-danger: white;
@@ -60,6 +62,7 @@
 		--success: #4caf50;
 		--warning: #ff9800;
 		--danger: #f44336;
+		--danger-fill: #c62828;
 		--danger-button: #ff4444;
 		--danger-button-hover: #ff6666;
 		--on-danger: white;
@@ -88,6 +91,7 @@
 	--success: #4caf50;
 	--warning: #ff9800;
 	--danger: #f44336;
+	--danger-fill: #c62828;
 	--danger-button: #ff4444;
 	--danger-button-hover: #ff6666;
 	--on-danger: white;
@@ -598,6 +602,30 @@ body {
 	color: var(--bg);
 }
 
+/* Above the list: show only the failed calls. Red to say what it is about. */
+.failed-bar {
+	display: flex;
+	padding: 0.25rem 0.25rem 0;
+}
+
+.failed-chip {
+	border-color: var(--danger);
+	color: var(--danger);
+}
+
+.failed-chip:hover {
+	border-color: var(--danger);
+	color: var(--danger);
+	background: var(--surface-compared);
+}
+
+.failed-chip[aria-pressed="true"],
+.failed-chip[aria-pressed="true"]:hover {
+	border-color: var(--danger-fill);
+	background: var(--danger-fill);
+	color: var(--on-danger);
+}
+
 .recent-empty {
 	margin: 0;
 	padding: 0 0.25rem;
@@ -772,6 +800,50 @@ body {
 
 .project-tabs .tab {
 	white-space: nowrap;
+}
+
+/* Calls, Failed, Tokens and Latency of the calls shown, under the tabs. */
+.stats-cards {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+	gap: 0.75rem;
+	padding-top: 0.75rem;
+}
+
+.stats-card {
+	display: flex;
+	flex-direction: column;
+	gap: 0.15rem;
+	padding: 0.5rem 0.75rem;
+	border: 1px solid var(--border);
+	border-radius: 6px;
+	background: var(--surface);
+}
+
+.stats-label {
+	font-size: 0.75rem;
+	color: var(--text-muted);
+}
+
+.stats-value {
+	font-size: 1.1rem;
+	font-weight: 600;
+	color: var(--text-strong);
+	font-variant-numeric: tabular-nums;
+}
+
+.stats-detail {
+	font-size: 0.8rem;
+	color: var(--text-faint);
+	font-variant-numeric: tabular-nums;
+}
+
+.stats-card.alert {
+	border-color: var(--danger);
+}
+
+.stats-card.alert .stats-value {
+	color: var(--danger);
 }
 
 /* New calls in a project you are not looking at. */

@@ -1,9 +1,12 @@
 <script lang="ts">
 import { onMount } from 'svelte';
 import { SvelteMap } from 'svelte/reactivity';
+// The proxy's own counts, so the cards and `GET /api/stats` agree.
+import { toCounts } from '../../proxy/src/stats.js';
 import DayHeader from './DayHeader.svelte';
 import Detail from './Detail.svelte';
 import EmptyList from './EmptyList.svelte';
+import FailedChip from './FailedChip.svelte';
 import { previousCall } from './lib/compare.js';
 import {
 	type DayGroup,
@@ -19,11 +22,19 @@ import {
 	projectNames,
 } from './lib/projects.js';
 import { fullRecord } from './lib/record.svelte.js';
-import { callState, newestFirst } from './lib/requests.js';
+import {
+	callState,
+	countFailed,
+	isShown,
+	newestFirst,
+	onlyFailed,
+} from './lib/requests.js';
+import { statsCards } from './lib/stats.js';
 import type { CallSummary, Tab } from './lib/types.js';
 import ProjectTabs from './ProjectTabs.svelte';
 import RecentChips from './RecentChips.svelte';
 import RequestRow from './RequestRow.svelte';
+import StatsCards from './StatsCards.svelte';
 import Toolbar from './Toolbar.svelte';
 
 /** How long to wait before reopening `/events` after the browser gives up on it. */
@@ -160,15 +171,18 @@ const elsewhere = $derived(
 	}),
 );
 
-const visible = $derived(
+// Only the failed calls, on every tab, while the Failed chip is pressed.
+let failedOnly = $state(false);
+
+// The project's calls that match the search, failed or not.
+const inView = $derived(
 	[...requests.values()]
-		.filter(
-			(call) =>
-				call.project === project &&
-				(!search || !matches || matches.has(call.id)),
+		.filter((call) =>
+			isShown(call, { project, matches: search ? matches : undefined }),
 		)
 		.sort(newestFirst),
 );
+const visible = $derived(failedOnly ? onlyFailed(inView) : inView);
 
 /** How often the day labels are brought up to date. */
 const CLOCK_MS = 60_000;
@@ -190,9 +204,9 @@ $effect(() => {
 	return () => clearInterval(timer);
 });
 const groups = $derived(groupByDay(visible));
-// While searching, every day with a match is open.
+// While searching or showing failed calls, every day with one is open.
 const isOpen = (key: string) =>
-	Boolean(search) || (dayOpen.get(key) ?? key === today);
+	Boolean(search) || failedOnly || (dayOpen.get(key) ?? key === today);
 
 /** How often the window of a recent-minutes chip moves on. */
 const RECENT_TICK_MS = 5000;
@@ -215,6 +229,14 @@ const shownCalls = (group: DayGroup) =>
 	narrowing && recent !== undefined && group.key === today
 		? withinLast(group.calls, recent, recentNow)
 		: group.calls;
+// Every call in the list, in closed days too, for the cards above it.
+const listed = $derived(groups.flatMap(shownCalls));
+const cards = $derived(statsCards(toCounts(listed)));
+// The Failed chip counts what pressing it would list, so the chip, the list
+// and the Failed card agree under a search or a minutes chip.
+const failedCount = $derived(
+	countFailed(groupByDay(inView).flatMap(shownCalls)),
+);
 
 onMount(() => {
 	let events: EventSource | undefined;
@@ -315,6 +337,7 @@ async function clearRequests() {
   matches={search ? matchCounts : undefined}
   onchoose={chooseProject}
 />
+<StatsCards shown={listed.length > 0} {cards} />
 
 <div class="panes">
   <section class="list" class:picking aria-label="Captured requests">
@@ -324,6 +347,11 @@ async function clearRequests() {
         <button type="button" class="small-btn" onclick={() => (picking = false)}>Cancel</button>
       </p>
     {/if}
+    <FailedChip
+      pressed={failedOnly}
+      count={failedCount}
+      ontoggle={() => (failedOnly = !failedOnly)}
+    />
     {#each groups as group (group.key)}
       {@const open = isOpen(group.key)}
       {@const calls = shownCalls(group)}
@@ -355,7 +383,7 @@ async function clearRequests() {
         {/if}
       </div>
     {:else}
-      <EmptyList {project} {search} {elsewhere} onchoose={chooseProject} />
+      <EmptyList {project} {search} {failedOnly} {elsewhere} onchoose={chooseProject} />
     {/each}
   </section>
 
