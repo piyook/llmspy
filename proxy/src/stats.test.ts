@@ -107,6 +107,15 @@ describe('toStats', () => {
 		expect(byModel['claude-a']).not.toHaveProperty('byModel');
 	});
 
+	it('keeps a model named __proto__ as a key of its own', () => {
+		const { byModel } = toStats([
+			call(10, { llm: { model: '__proto__' } }),
+		]);
+		expect(Object.keys(byModel)).toEqual(['__proto__']);
+		expect(Object.getPrototypeOf(byModel)).toBe(Object.prototype);
+		expect(JSON.stringify(byModel)).toContain('"__proto__":{"calls":1');
+	});
+
 	it('counts per project', () => {
 		const { byProject } = toStats([
 			call(10, { project: 'site-agent', response: { status: 429 } }),

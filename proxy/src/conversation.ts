@@ -9,12 +9,13 @@ const HEADINGS: Record<LlmMessage['role'], string> = {
 
 /**
  * One call's conversation as Markdown, in full, for an agent to read: the
- * system prompt, tools, messages sent and the reply. `undefined` when the
- * call was not read as an LLM API call.
+ * system prompt, tools, messages sent and the reply. A body that could not
+ * be read is named under Error, with whatever else was read still shown.
+ * `undefined` when the call was not read as an LLM API call.
  */
 export function toMarkdown(captured: CapturedRequest): string | undefined {
 	const { llm } = captured;
-	if (!llm || llm.parseError) return undefined;
+	if (!llm) return undefined;
 	const sections = [header(captured, llm)];
 	if (llm.system) sections.push(`## System\n\n${llm.system}`);
 	if (llm.tools?.length) {
@@ -59,6 +60,7 @@ function errorLines(captured: CapturedRequest, llm: LlmExchange): string[] {
 		lines.push(`${type}${llm.error.message}`);
 	}
 	if (captured.error) lines.push(captured.error);
+	if (llm.parseError) lines.push(`Could not read ${llm.parseError}`);
 	return lines;
 }
 

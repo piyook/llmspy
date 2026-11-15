@@ -2,7 +2,7 @@
 import { onMount } from 'svelte';
 import { SvelteMap } from 'svelte/reactivity';
 // The proxy's own counts, so the cards and `GET /api/stats` agree.
-import { toStats } from '../../proxy/src/stats.js';
+import { toCounts } from '../../proxy/src/stats.js';
 import DayHeader from './DayHeader.svelte';
 import Detail from './Detail.svelte';
 import EmptyList from './EmptyList.svelte';
@@ -27,6 +27,7 @@ import {
 	countFailed,
 	isShown,
 	newestFirst,
+	onlyFailed,
 } from './lib/requests.js';
 import { statsCards } from './lib/stats.js';
 import type { CallSummary, Tab } from './lib/types.js';
@@ -172,19 +173,16 @@ const elsewhere = $derived(
 
 // Only the failed calls, on every tab, while the Failed chip is pressed.
 let failedOnly = $state(false);
-const failedCount = $derived(countFailed(requests.values(), project));
 
-const visible = $derived(
+// The project's calls that match the search, failed or not.
+const inView = $derived(
 	[...requests.values()]
 		.filter((call) =>
-			isShown(call, {
-				project,
-				matches: search ? matches : undefined,
-				failedOnly,
-			}),
+			isShown(call, { project, matches: search ? matches : undefined }),
 		)
 		.sort(newestFirst),
 );
+const visible = $derived(failedOnly ? onlyFailed(inView) : inView);
 
 /** How often the day labels are brought up to date. */
 const CLOCK_MS = 60_000;
@@ -233,7 +231,12 @@ const shownCalls = (group: DayGroup) =>
 		: group.calls;
 // Every call in the list, in closed days too, for the cards above it.
 const listed = $derived(groups.flatMap(shownCalls));
-const cards = $derived(statsCards(toStats(listed)));
+const cards = $derived(statsCards(toCounts(listed)));
+// The Failed chip counts what pressing it would list, so the chip, the list
+// and the Failed card agree under a search or a minutes chip.
+const failedCount = $derived(
+	countFailed(groupByDay(inView).flatMap(shownCalls)),
+);
 
 onMount(() => {
 	let events: EventSource | undefined;
