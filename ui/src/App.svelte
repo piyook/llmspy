@@ -11,8 +11,7 @@ import Toolbar from './Toolbar.svelte';
 /** How long to wait before reopening `/events` after the browser gives up on it. */
 const RECONNECT_MS = 3000;
 
-// Keyed by id: `/events` replays the whole store on every (re)connect,
-// so a request seen again replaces itself instead of being added twice.
+// Keyed by id, so an update to a running call replaces its row.
 const requests = new SvelteMap<string, CapturedRequest>();
 let search = $state('');
 let selectedId = $state<string>();
@@ -75,6 +74,9 @@ onMount(() => {
 		events = new EventSource('/events');
 		events.onopen = () => {
 			connected = true;
+			// `/events` replays the whole store after this, so start empty:
+			// rows from before a proxy restart would otherwise stay forever.
+			requests.clear();
 			// Again on every reconnect: a restarted proxy may use another port.
 			loadAddress();
 		};
