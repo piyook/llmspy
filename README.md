@@ -98,7 +98,7 @@ Calls without a tag go to `general`. A project name is lowercase letters, digits
 
 ![Project tabs under the header: general, site-agent (selected, its calls listed) and support-bot with a badge for two new calls](docs/screenshots/projects.png)
 
-For coding agents and scripts, [llms.txt](llms.txt) is a compact reference: how to run LLMSpy, point an app at it, and read the captured traffic as JSON, or one call as Markdown.
+For coding agents and scripts, [llms.txt](llms.txt) is a compact reference: how to run LLMSpy, point an app at it, and read the captured traffic as JSON, or one call as Markdown, and wait for a call that is still running.
 
 ## Upstreams
 
@@ -179,7 +179,7 @@ The file holds whole prompts and replies (API keys are masked), so treat it like
 
 ## How it works
 
-- `proxy/`: one Node HTTP server. `/<prefix>/...` (or `/@<project>/<prefix>/...`) is forwarded to the upstream with the bytes unchanged, chunk by chunk, while a copy of each body is kept, decompressed (gzip, deflate, br, zstd) and decoded for display. `/events` (Server-Sent Events of call summaries), `/api/requests` (summaries, with `?project=`, `?q=` search, `?since=`, `?limit=` and `?full=1` for full records), `GET`/`DELETE /api/requests/<id>` (one full record), `/api/requests/<id>/conversation` (the call as Markdown), `/api/upstreams` (each prefix and where it forwards to) and `/api/clear` serve the UI, and any other path is a file from the built UI (`ui/dist`). Calls are stored with `node:sqlite`; a running call is held in memory and written when it starts, when its response headers arrive and when it ends.
+- `proxy/`: one Node HTTP server. `/<prefix>/...` (or `/@<project>/<prefix>/...`) is forwarded to the upstream with the bytes unchanged, chunk by chunk, while a copy of each body is kept, decompressed (gzip, deflate, br, zstd) and decoded for display. `/events` (Server-Sent Events of call summaries), `/api/requests` (summaries, with `?project=`, `?q=` search, `?since=`, `?limit=` and `?full=1` for full records), `GET`/`DELETE /api/requests/<id>` (one full record), `/api/requests/<id>/conversation` (the call as Markdown; both reads take `?wait=<seconds>` to answer once a running call ends), `/api/upstreams` (each prefix and where it forwards to) and `/api/clear` serve the UI, and any other path is a file from the built UI (`ui/dist`). Calls are stored with `node:sqlite`; a running call is held in memory and written when it starts, when its response headers arrive and when it ends.
 - `ui/`: Svelte and Vite.
 
 ## Development
