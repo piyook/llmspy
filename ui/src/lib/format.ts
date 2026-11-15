@@ -14,10 +14,12 @@ export function formatElapsed(ms: number): string {
 	return `${Math.floor(seconds / 60)}m ${rest}s`;
 }
 
-/** `1234` -> `1.2k`; `?` when the provider did not report it. */
+/** `1234` -> `1.2k`, `2500000` -> `2.5M`; `?` when the provider did not report it. */
 export function formatTokens(count?: number): string {
 	if (count === undefined) return '?';
-	return count < 1000 ? `${count}` : `${(count / 1000).toFixed(1)}k`;
+	if (count < 1000) return `${count}`;
+	if (count < 999_950) return `${(count / 1000).toFixed(1)}k`;
+	return `${(count / 1_000_000).toFixed(1)}M`;
 }
 
 export function statusClass(status: number): string {

@@ -48,6 +48,10 @@ When a project has calls that went wrong, a red **Failed** chip above the list c
 
 <img src="docs/screenshots/failed.png" width="300" alt="The Failed chip pressed: the list shows only the failed calls, two 429s, two errors in the stream and two dropped streams">
 
+Cards above the panes count the calls in the list as it is narrowed (by project, search, the Failed chip and the minutes chips): how many there are and how many are running, how many failed, their tokens in, out and cached, and their p50 and p95 latency. They update live, and agree with `GET /api/stats`.
+
+<img src="docs/screenshots/cards.png" alt="The cards above the panes for the general project: 54 calls, 18 failed (33%, in red), 990 tokens in and 996 out, latency p50 16ms and p95 801ms">
+
 Select a call to look at it three ways.
 
 **Conversation** (above) reads the call as the model sees it: the system prompt and tools, then each message by role, with tool calls matched to their results, and the reply at the end with its stop reason and token use. Streamed replies are put back together. LLMSpy reads the Anthropic Messages, OpenAI Chat Completions and OpenAI Responses formats.
