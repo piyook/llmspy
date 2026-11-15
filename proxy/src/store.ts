@@ -29,6 +29,10 @@ export class RequestStore {
 		return [...this.requests];
 	}
 
+	public get(id: string): CapturedRequest | undefined {
+		return this.requests.find((request) => request.id === id);
+	}
+
 	/** Removes the request with this id, and says whether there was one. */
 	public remove(id: string): boolean {
 		const index = this.requests.findIndex((request) => request.id === id);
