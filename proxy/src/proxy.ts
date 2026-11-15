@@ -3,6 +3,7 @@ import type { AddressInfo } from 'node:net';
 import { forwardAndCapture } from './capture.js';
 import { isAllowedUiRequest } from './guard.js';
 import { exchangeParser } from './parsers/index.js';
+import { parseListRequest } from './query.js';
 import { serveStatic } from './static.js';
 import type { RequestStore } from './store.js';
 import { toSummary } from './summary.js';
@@ -168,21 +169,21 @@ export class ProxyServer {
 	}
 
 	/**
-	 * `GET /api/requests`: summaries, newest first. `?project=<name>` keeps
-	 * one project's; `?q=<text>` keeps those whose host, path or either body
-	 * holds the text, ignoring case.
+	 * `GET /api/requests`: summaries, newest first, or full records with
+	 * `full=1`; `parseListRequest` reads the filters.
 	 */
 	private handleGetRequests(res: http.ServerResponse, url: string): void {
-		const query = new URLSearchParams(url.split('?')[1]);
-		const project = query.get('project') ?? undefined;
-		if (project !== undefined && !isProjectName(project)) {
+		const asked = parseListRequest(new URLSearchParams(url.split('?')[1]));
+		if ('error' in asked) {
 			res.writeHead(400, { 'content-type': 'text/plain; charset=utf-8' });
-			res.end(`LLMSpy: "${project}" is not a project name.`);
+			res.end(`LLMSpy: ${asked.error}`);
 			return;
 		}
-		const summaries = this.store.summaries(project, query.get('q') ?? '');
+		const calls = asked.full
+			? this.store.getRequests(asked.query)
+			: this.store.summaries(asked.query);
 		res.writeHead(200, { 'Content-Type': 'application/json' });
-		res.end(JSON.stringify(summaries));
+		res.end(JSON.stringify(calls));
 	}
 
 	/** `GET /api/requests/<id>`: the full record. */

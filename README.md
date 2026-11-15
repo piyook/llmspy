@@ -173,7 +173,7 @@ The file holds whole prompts and replies (API keys are masked), so treat it like
 
 ## How it works
 
-- `proxy/`: one Node HTTP server. `/<prefix>/...` (or `/@<project>/<prefix>/...`) is forwarded to the upstream with the bytes unchanged, chunk by chunk, while a copy of each body is kept, decompressed (gzip, deflate, br, zstd) and decoded for display. `/events` (Server-Sent Events of call summaries), `/api/requests` (summaries, with `?project=` and `?q=` search), `GET`/`DELETE /api/requests/<id>` (one full record), `/api/upstreams` (each prefix and where it forwards to) and `/api/clear` serve the UI, and any other path is a file from the built UI (`ui/dist`). Calls are stored with `node:sqlite`; a running call is held in memory and written when it starts, when its response headers arrive and when it ends.
+- `proxy/`: one Node HTTP server. `/<prefix>/...` (or `/@<project>/<prefix>/...`) is forwarded to the upstream with the bytes unchanged, chunk by chunk, while a copy of each body is kept, decompressed (gzip, deflate, br, zstd) and decoded for display. `/events` (Server-Sent Events of call summaries), `/api/requests` (summaries, with `?project=`, `?q=` search, `?since=`, `?limit=` and `?full=1` for full records), `GET`/`DELETE /api/requests/<id>` (one full record), `/api/upstreams` (each prefix and where it forwards to) and `/api/clear` serve the UI, and any other path is a file from the built UI (`ui/dist`). Calls are stored with `node:sqlite`; a running call is held in memory and written when it starts, when its response headers arrive and when it ends.
 - `ui/`: Svelte and Vite.
 
 ## Development

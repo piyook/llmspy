@@ -582,9 +582,42 @@ describe('ProxyServer', () => {
 			expect(ids((await list('?q=nowhere')).body)).toEqual([]);
 		});
 
-		it('answers 400 to a project name that cannot exist', async () => {
+		it('keeps the calls that started at or after ?since=, as ISO time or ms', async () => {
+			const { store, list } = await proxyWithThreeCalls();
+			const ids = (body: string) =>
+				JSON.parse(body).map(({ id }: { id: string }) => id);
+			const since = store.getRequests()[1].timings.start;
+			const expected = store
+				.getRequests()
+				.filter(({ timings }) => timings.start >= since)
+				.map(({ id }) => id);
+
+			expect(ids((await list(`?since=${since}`)).body)).toEqual(expected);
+			const iso = new Date(since).toISOString();
+			expect(ids((await list(`?since=${iso}`)).body)).toEqual(expected);
+		});
+
+		it('returns the newest full records with ?full=1&limit=', async () => {
+			const { store, list } = await proxyWithThreeCalls();
+			const { status, body } = await list('?full=1&limit=2');
+			expect(status).toBe(200);
+			const records = JSON.parse(body);
+			expect(records).toEqual(store.getRequests().slice(0, 2));
+			expect(records[0].response.body).toBe('{"reply":"Bonjour"}');
+		});
+
+		it('answers 400 to a parameter it can not read', async () => {
 			const { list } = await proxyWithThreeCalls();
-			expect((await list('?project=Not_Valid')).status).toBe(400);
+			for (const query of [
+				'?project=Not_Valid',
+				'?since=yesterday',
+				'?limit=0',
+				'?full=true',
+			]) {
+				const { status, body } = await list(query);
+				expect(status).toBe(400);
+				expect(body).toMatch(/^LLMSpy: /);
+			}
 		});
 	});
 
