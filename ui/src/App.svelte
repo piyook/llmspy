@@ -5,7 +5,13 @@ import DayHeader from './DayHeader.svelte';
 import Detail from './Detail.svelte';
 import EmptyList from './EmptyList.svelte';
 import { previousCall } from './lib/compare.js';
-import { dayKey, dayLabel, groupByDay } from './lib/days.js';
+import {
+	type DayGroup,
+	dayKey,
+	dayLabel,
+	groupByDay,
+	withinLast,
+} from './lib/days.js';
 import {
 	countByProject,
 	countSince,
@@ -16,6 +22,7 @@ import { fullRecord } from './lib/record.svelte.js';
 import { callState, newestFirst } from './lib/requests.js';
 import type { CallSummary, Tab } from './lib/types.js';
 import ProjectTabs from './ProjectTabs.svelte';
+import RecentChips from './RecentChips.svelte';
 import RequestRow from './RequestRow.svelte';
 import Toolbar from './Toolbar.svelte';
 
@@ -187,6 +194,28 @@ const groups = $derived(groupByDay(visible));
 const isOpen = (key: string) =>
 	Boolean(search) || (dayOpen.get(key) ?? key === today);
 
+/** How often the window of a recent-minutes chip moves on. */
+const RECENT_TICK_MS = 5000;
+// Today's calls narrowed to the last few minutes, for every project tab;
+// undefined shows all of today. Not used while searching.
+let recent = $state<number>();
+const narrowing = $derived(recent !== undefined && !search);
+// Its own clock, so the day clock still sees midnight go by.
+let recentNow = $state(Date.now());
+$effect(() => {
+	if (!narrowing) return;
+	recentNow = Date.now();
+	const timer = setInterval(() => (recentNow = Date.now()), RECENT_TICK_MS);
+	return () => clearInterval(timer);
+});
+// The chips sit under Today's heading while it is open, except while searching.
+const hasChips = (key: string) => key === today && !search && isOpen(key);
+// The calls of a day that are shown: all, or today's recent ones.
+const shownCalls = (group: DayGroup) =>
+	narrowing && recent !== undefined && group.key === today
+		? withinLast(group.calls, recent, recentNow)
+		: group.calls;
+
 onMount(() => {
 	let events: EventSource | undefined;
 	let retry: ReturnType<typeof setTimeout> | undefined;
@@ -297,15 +326,23 @@ async function clearRequests() {
     {/if}
     {#each groups as group (group.key)}
       {@const open = isOpen(group.key)}
+      {@const calls = shownCalls(group)}
       <div class="day">
         <DayHeader
           label={dayLabel(group.key, now)}
-          count={group.calls.length}
+          count={calls.length}
+          total={group.calls.length}
           {open}
           ontoggle={() => dayOpen.set(group.key, !open)}
         />
+        <RecentChips
+          shown={hasChips(group.key)}
+          minutes={recent}
+          count={calls.length}
+          onchoose={(minutes) => (recent = minutes)}
+        />
         {#if open}
-          {#each group.calls as request (request.id)}
+          {#each calls as request (request.id)}
             <RequestRow
               {request}
               selected={request.id === selectedId}

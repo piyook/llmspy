@@ -43,6 +43,19 @@ export function dayLabel(key: string, now: number): string {
 		: `${label} ${part('year')}`;
 }
 
+/** The windows, in minutes, today's calls can be narrowed to. */
+export const RECENT_MINUTES = [5, 15, 30, 60, 90] as const;
+
+/** The calls that started in the `minutes` before `now`. */
+export function withinLast(
+	calls: CallSummary[],
+	minutes: number,
+	now: number,
+): CallSummary[] {
+	const since = now - minutes * 60_000;
+	return calls.filter((call) => call.timings.start >= since);
+}
+
 /** Calls sorted newest first, grouped by local day, newest day first. */
 export function groupByDay(calls: CallSummary[]): DayGroup[] {
 	const groups: DayGroup[] = [];

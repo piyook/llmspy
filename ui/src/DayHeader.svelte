@@ -3,11 +3,15 @@
 let {
 	label,
 	count,
+	total,
 	open,
 	ontoggle,
 }: {
 	label: string;
+	/** How many of the day's calls are shown. */
 	count: number;
+	/** How many calls the day has. */
+	total: number;
 	open: boolean;
 	ontoggle: () => void;
 } = $props();
@@ -30,5 +34,8 @@ let {
     <path d="M9 6l6 6-6 6" />
   </svg>
   <span class="day-label">{label}</span>
-  <span class="day-count">{count} {count === 1 ? 'call' : 'calls'}</span>
+  <span class="day-count">
+    {count === total ? count : `${count} of ${total}`}
+    {total === 1 ? 'call' : 'calls'}
+  </span>
 </button>
