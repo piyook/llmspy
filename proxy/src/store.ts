@@ -28,6 +28,18 @@ export function parseRetentionDays(value: string | undefined): number {
 	return Number(value);
 }
 
+/** Which calls to list. Every field is optional; together they all apply. */
+export interface CallQuery {
+	/** Only this project's calls. */
+	project?: string;
+	/** Only the calls `matchesSearch` keeps for this text. */
+	search?: string;
+	/** Only the calls that started at or after this time (epoch ms). */
+	since?: number;
+	/** At most this many: the newest. */
+	limit?: number;
+}
+
 interface Row {
 	id: string;
 	summary: string;
@@ -97,11 +109,13 @@ export class RequestStore {
 		}
 	}
 
-	/**
-	 * Summaries, newest first: of one project, or of all when `project` is
-	 * undefined; with `search`, only the calls `matchesSearch` keeps.
-	 */
-	public summaries(project?: string, search = ''): CallSummary[] {
+	/** Summaries, newest first, of the calls `query` keeps. */
+	public summaries({
+		project,
+		search = '',
+		since,
+		limit,
+	}: CallQuery = {}): CallSummary[] {
 		const pattern = likePattern(search);
 		// A running call's stored copy is behind, so it is checked in memory.
 		const rows = this.db
@@ -109,6 +123,7 @@ export class RequestStore {
 				`SELECT id, summary, CASE WHEN :search = '' THEN NULL ELSE record END AS record
 				FROM calls
 				WHERE (:project IS NULL OR project = :project)
+					AND (:since IS NULL OR start >= :since)
 					AND (:pattern IS NULL OR record LIKE :pattern ESCAPE '\\'
 						OR id IN (SELECT value FROM json_each(:running)))
 				ORDER BY start DESC, rowid DESC`,
@@ -116,12 +131,15 @@ export class RequestStore {
 			.all({
 				search,
 				project: project ?? null,
+				since: since ?? null,
 				pattern,
 				running: JSON.stringify([...this.running.keys()]),
 			}) as unknown as Row[];
 
 		const summaries: CallSummary[] = [];
 		for (const row of rows) {
+			// Search filters after the query, so the limit is counted here.
+			if (summaries.length === limit) break;
 			const live = this.running.get(row.id)?.captured;
 			if (search) {
 				const captured =
@@ -137,9 +155,9 @@ export class RequestStore {
 		return summaries;
 	}
 
-	/** Every call in full, newest first. */
-	public getRequests(): CapturedRequest[] {
-		return this.summaries().map(
+	/** The calls `query` keeps (every call by default) in full, newest first. */
+	public getRequests(query?: CallQuery): CapturedRequest[] {
+		return this.summaries(query).map(
 			({ id }) => this.get(id) as CapturedRequest,
 		);
 	}

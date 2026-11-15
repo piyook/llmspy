@@ -135,7 +135,50 @@ describe('RequestStore', () => {
 		const store = open();
 		store.addRequest(call('a', { project: 'app' }));
 		store.addRequest(call('b'));
-		expect(store.summaries('app').map(({ id }) => id)).toEqual(['a']);
+		expect(store.summaries({ project: 'app' }).map(({ id }) => id)).toEqual(
+			['a'],
+		);
+	});
+
+	it('lists the calls that started at or after a time', () => {
+		const store = open();
+		store.addRequest(call('a', { start: 1 }));
+		store.addRequest(call('b', { start: 2 }));
+		store.addRequest(call('c', { start: 3, running: true }));
+		expect(store.summaries({ since: 2 }).map(({ id }) => id)).toEqual([
+			'c',
+			'b',
+		]);
+	});
+
+	it('lists only the newest calls up to a limit', () => {
+		const store = open();
+		store.addRequest(call('a', { start: 1 }));
+		store.addRequest(call('b', { start: 2 }));
+		store.addRequest(call('c', { start: 3 }));
+		expect(store.summaries({ limit: 2 }).map(({ id }) => id)).toEqual([
+			'c',
+			'b',
+		]);
+	});
+
+	it('counts the limit after the search', () => {
+		const store = open();
+		store.addRequest(call('a', { start: 1, body: 'needle' }));
+		store.addRequest(call('b', { start: 2, body: 'needle' }));
+		store.addRequest(call('c', { start: 3, body: 'hay' }));
+		expect(
+			store.summaries({ search: 'needle', limit: 1 }).map(({ id }) => id),
+		).toEqual(['b']);
+	});
+
+	it('gives the calls a query keeps in full', () => {
+		const store = open();
+		store.addRequest(call('a', { start: 1, body: 'first' }));
+		store.addRequest(call('b', { start: 2, body: 'second' }));
+		expect(store.getRequests({ since: 2 }).map(({ body }) => body)).toEqual(
+			['second'],
+		);
 	});
 
 	it('lists summaries without the bodies', () => {
@@ -237,7 +280,7 @@ describe('RequestStore', () => {
 
 	describe('search', () => {
 		const found = (store: RequestStore, search: string) =>
-			store.summaries(undefined, search).map(({ id }) => id);
+			store.summaries({ search }).map(({ id }) => id);
 
 		it('finds the text in a body, ignoring case', () => {
 			const store = open();
