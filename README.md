@@ -36,7 +36,13 @@ It is for local development only. It listens on `127.0.0.1`, masks API keys in w
 
 ## What you see
 
-Every call appears in the list on the left as soon as it is sent, newest first, with its status, time taken and token counts. A call still running is marked `waiting` or `replying` with a running timer; its reply shows once it ends. Select one to look at it three ways.
+Every call appears in the list on the left as soon as it is sent, newest first, with its status, time taken and token counts. A call still running is marked `waiting` or `replying` with a running timer; its reply shows once it ends.
+
+The list is grouped by day, with older days folded away. The chips under Today show only its calls from the last 5 to 90 minutes, such as one run of an agent, and its heading counts how many are shown.
+
+<img src="docs/screenshots/days.png" width="300" alt="The call list narrowed to the last 15 minutes: Today shows 3 of 15 calls, with Yesterday and Thu 12 Nov folded below">
+
+Select a call to look at it three ways.
 
 **Conversation** (above) reads the call as the model sees it: the system prompt and tools, then each message by role, with tool calls matched to their results, and the reply at the end with its stop reason and token use. Streamed replies are put back together. LLMSpy reads the Anthropic Messages, OpenAI Chat Completions and OpenAI Responses formats.
 
@@ -50,7 +56,7 @@ Every call appears in the list on the left as soon as it is sent, newest first, 
 
 Under the summary, a line diff of the two request bodies shows everything else that changed, such as `max_tokens`, `temperature` or a tool's schema, with unchanged stretches folded away.
 
-![The request body diff in the Compare tab, with the added messages in green and the changed system prompt in red and green](docs/screenshots/compare-body.png)
+![The request body diff in the Compare tab, with the messages the later call added in green](docs/screenshots/compare-body.png)
 
 The traffic in these screenshots is made up, sent to the mock server described under [Testing without an API key](#testing-without-an-api-key).
 
@@ -90,7 +96,7 @@ $env:ANTHROPIC_BASE_URL = "http://127.0.0.1:8080/@my-app/anthropic"
 
 Calls without a tag go to `general`. A project name is lowercase letters, digits and dashes, like an upstream name. The tabs appear once there is a project besides `general`; a tab you are not viewing counts its new calls. A search looks in every project: while it is on, each tab counts its matches instead. Clear All empties only the project you are viewing.
 
-![Project tabs under the header: general, site-agent (selected, its three calls listed) and support-bot with a badge for two new calls](docs/screenshots/projects.png)
+![Project tabs under the header: general, site-agent (selected, its calls listed) and support-bot with a badge for two new calls](docs/screenshots/projects.png)
 
 For coding agents and scripts, [llms.txt](llms.txt) is a compact reference: how to run LLMSpy, point an app at it, and read the captured traffic as JSON.
 
