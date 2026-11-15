@@ -1,8 +1,10 @@
 <script lang="ts">
 import { onMount } from 'svelte';
 import { SvelteMap } from 'svelte/reactivity';
+import DayHeader from './DayHeader.svelte';
 import Detail from './Detail.svelte';
 import { previousCall } from './lib/compare.js';
+import { dayKey, dayLabel, groupByDay } from './lib/days.js';
 import { countSince, DEFAULT_PROJECT, projectNames } from './lib/projects.js';
 import { fullRecord } from './lib/record.svelte.js';
 import { callState, newestFirst } from './lib/requests.js';
@@ -144,6 +146,30 @@ const visible = $derived(
 		.sort(newestFirst),
 );
 
+/** How often the day labels are brought up to date. */
+const CLOCK_MS = 60_000;
+// For the labels, so Today becomes Yesterday at midnight.
+let now = $state(Date.now());
+const today = $derived(dayKey(now));
+// Days opened or closed by hand; any other day is open only if it is today.
+const dayOpen = new SvelteMap<string, boolean>();
+$effect(() => {
+	const timer = setInterval(() => {
+		const next = Date.now();
+		// A day left at its default stays open after midnight.
+		const before = dayKey(now);
+		if (dayKey(next) !== before && !dayOpen.has(before)) {
+			dayOpen.set(before, true);
+		}
+		now = next;
+	}, CLOCK_MS);
+	return () => clearInterval(timer);
+});
+const groups = $derived(groupByDay(visible));
+// While searching, every day with a match is open.
+const isOpen = (key: string) =>
+	Boolean(search) || (dayOpen.get(key) ?? key === today);
+
 onMount(() => {
 	let events: EventSource | undefined;
 	let retry: ReturnType<typeof setTimeout> | undefined;
@@ -246,15 +272,28 @@ async function clearRequests() {
         <button type="button" class="small-btn" onclick={() => (picking = false)}>Cancel</button>
       </p>
     {/if}
-    {#each visible as request (request.id)}
-      <RequestRow
-        {request}
-        selected={request.id === selectedId}
-        {comparing}
-        compared={comparing && request.id === other?.id}
-        onselect={() => onrowclick(request.id)}
-        ondelete={() => deleteRequest(request.id)}
-      />
+    {#each groups as group (group.key)}
+      {@const open = isOpen(group.key)}
+      <div class="day">
+        <DayHeader
+          label={dayLabel(group.key, now)}
+          count={group.calls.length}
+          {open}
+          ontoggle={() => dayOpen.set(group.key, !open)}
+        />
+        {#if open}
+          {#each group.calls as request (request.id)}
+            <RequestRow
+              {request}
+              selected={request.id === selectedId}
+              {comparing}
+              compared={comparing && request.id === other?.id}
+              onselect={() => onrowclick(request.id)}
+              ondelete={() => deleteRequest(request.id)}
+            />
+          {/each}
+        {/if}
+      </div>
     {:else}
       <div class="no-requests">
         {search

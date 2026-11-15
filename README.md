@@ -8,7 +8,7 @@ A lightweight local developer tool that shows LLM API traffic in real time, with
 - **Compare**: diff a call against the one before it, or any other, to see what an agent changed between turns
 - **Projects**: tag each app's base URL to give its calls their own tab
 - **Reads three formats**: Anthropic Messages, OpenAI Chat Completions and OpenAI Responses, streamed or not
-- **Kept across restarts**: the last 7 days of calls, in one file on your machine
+- **Kept across restarts**: the last 7 days of calls, in one file on your machine, listed by day with older days folded away
 - **Lightweight**: one command to start, one base URL to set in your app; no certificates or accounts
 
 ![LLMSpy showing a coding agent's call as a conversation: the user's question, the assistant's tool calls and the tool results](docs/screenshots/conversation.png)

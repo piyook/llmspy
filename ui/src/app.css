@@ -511,6 +511,58 @@ body {
 	background: var(--surface-compared);
 }
 
+/* The calls of one day, under a heading that stays at the top while they scroll. */
+.day {
+	display: flex;
+	flex-direction: column;
+	gap: 0.5rem;
+}
+
+.day-header {
+	position: sticky;
+	top: 0;
+	z-index: 2;
+	display: flex;
+	align-items: center;
+	gap: 0.4rem;
+	width: 100%;
+	padding: 0.3rem 0.25rem;
+	border: none;
+	border-bottom: 1px solid var(--border);
+	background: var(--bg);
+	color: var(--text-muted);
+	font: inherit;
+	font-size: 0.85rem;
+	text-align: left;
+	cursor: pointer;
+}
+
+.day-header:hover {
+	color: var(--text-strong);
+}
+
+.day-header:focus-visible {
+	outline: 2px solid var(--accent);
+}
+
+.day-chevron {
+	flex: none;
+	transition: transform 0.15s;
+}
+
+.day-chevron.open {
+	transform: rotate(90deg);
+}
+
+.day-label {
+	font-weight: 600;
+}
+
+.day-count {
+	margin-left: auto;
+	color: var(--text-faint);
+}
+
 /* While picking a call to compare with, a click picks instead of selecting. */
 .list.picking .row {
 	cursor: crosshair;
