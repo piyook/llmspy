@@ -58,6 +58,10 @@ const base = $derived(`${location.protocol}//${address ?? DEFAULT_ADDRESS}`);
         <code class="help-code">ANTHROPIC_BASE_URL={base}/@my-app/anthropic</code>
         Calls without it go to <code>general</code>.
       </li>
+      <li>
+        Search looks in every project, prompts and replies included; each tab
+        shows its number of matches.
+      </li>
       <li>API keys are masked. Prompts and replies are shown in full.</li>
       <li>
         Calls are kept in memory only: the latest 500, gone when LLMSpy
