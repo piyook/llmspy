@@ -6,7 +6,7 @@ import {
 	formatTokens,
 	statusClass,
 } from './lib/format.js';
-import { callState } from './lib/requests.js';
+import { callState, quietFor } from './lib/requests.js';
 import type { CapturedRequest } from './lib/types.js';
 
 // comparing: whether the Compare tab is open. compared: the call it
@@ -34,6 +34,7 @@ $effect(() => {
 	const timer = setInterval(() => (now = Date.now()), 1000);
 	return () => clearInterval(timer);
 });
+const quiet = $derived(quietFor(request, now));
 
 const usage = $derived(request.llm?.usage);
 const hasTokens = $derived(
@@ -71,6 +72,9 @@ const replyError = $derived(
     {#if phase !== 'done'}
       <span class="status-running">{phase}</span>
       <span class="latency">{formatElapsed(now - request.timings.start)}</span>
+      {#if quiet !== undefined}
+        <span class="status-quiet" title="No data has arrived for a while. A reasoning model can be quiet while it thinks.">quiet {formatElapsed(quiet)}</span>
+      {/if}
     {:else if request.latency !== undefined}
       <span class="latency">{formatLatency(request.latency)}</span>
     {/if}

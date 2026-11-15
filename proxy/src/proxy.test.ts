@@ -236,6 +236,10 @@ describe('ProxyServer', () => {
 		const running = store.getRequests()[0];
 		expect(running.timings.end).toBeUndefined();
 		expect(running.response?.body).toContain('Hel');
+		const firstData = running.timings.lastData;
+		expect(firstData).toBeGreaterThanOrEqual(
+			running.timings.firstByte ?? 0,
+		);
 
 		release();
 		await ended;
@@ -243,9 +247,27 @@ describe('ProxyServer', () => {
 			expect(store.getRequests()[0].timings.end).toBeDefined(),
 		);
 		expect(store.getRequests()).toHaveLength(1);
+		const { timings } = store.getRequests()[0];
+		expect(timings.lastData).toBeGreaterThanOrEqual(firstData ?? 0);
+		expect(timings.lastData).toBeLessThanOrEqual(timings.end ?? 0);
 		expect(store.getRequests()[0].llm?.output?.parts).toEqual([
 			{ type: 'text', text: 'Hello' },
 		]);
+	});
+
+	it('records when stream data last arrived only for a live stream', async () => {
+		const upstream = await startUpstream((req, res) => {
+			req.resume();
+			res.end('{}');
+		});
+		const { base, store } = await startProxy(upstream);
+		await readAll(await request(`${base}/fake/v1/messages`));
+		await vi.waitFor(() =>
+			expect(store.getRequests()[0]?.timings.end).toBeDefined(),
+		);
+		const { timings } = store.getRequests()[0];
+		expect(timings.firstByte).toBeDefined();
+		expect(timings.lastData).toBeUndefined();
 	});
 
 	it('forwards compressed bytes unchanged and captures the decompressed body', async () => {
