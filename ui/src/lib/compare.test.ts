@@ -57,6 +57,14 @@ describe('previousCall', () => {
 		expect(previousCall([a1, o1, a2], a2)?.id).toBe('a1');
 	});
 
+	it('skips calls in other projects', () => {
+		const other = {
+			...request('x2', 'anthropic', 2500),
+			project: 'my-app',
+		};
+		expect(previousCall([a1, a2, other, a3], a3)?.id).toBe('a2');
+	});
+
 	it('finds nothing for the first call', () => {
 		expect(previousCall([a1, o1, a2], a1)).toBeUndefined();
 		expect(previousCall([a1, o1, a2], o1)).toBeUndefined();

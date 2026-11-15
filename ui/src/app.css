@@ -668,6 +668,32 @@ body {
 	color: var(--text-strong);
 }
 
+/* general | my-app | ... under the header; scrolls sideways when there are many. */
+.project-tabs {
+	margin: 0;
+	padding-top: 0.5rem;
+	overflow-x: auto;
+	scrollbar-width: thin;
+}
+
+.project-tabs .tab {
+	white-space: nowrap;
+}
+
+/* New calls in a project you are not looking at. */
+.tab-badge {
+	display: inline-block;
+	min-width: 1.2em;
+	margin-left: 0.35rem;
+	padding: 0 0.35em;
+	border-radius: 999px;
+	background: var(--accent);
+	color: var(--bg);
+	font-size: 0.75em;
+	line-height: 1.5;
+	text-align: center;
+}
+
 .small-btn {
 	padding: 0.2rem 0.6rem;
 	border: 1px solid var(--border);

@@ -3,8 +3,10 @@ import { onMount } from 'svelte';
 import { SvelteMap } from 'svelte/reactivity';
 import Detail from './Detail.svelte';
 import { previousCall } from './lib/compare.js';
+import { countSince, DEFAULT_PROJECT, projectNames } from './lib/projects.js';
 import { matchesSearch, newestFirst } from './lib/requests.js';
 import type { CapturedRequest, Tab } from './lib/types.js';
+import ProjectTabs from './ProjectTabs.svelte';
 import RequestRow from './RequestRow.svelte';
 import Toolbar from './Toolbar.svelte';
 
@@ -28,6 +30,30 @@ async function loadAddress() {
 	} catch {
 		// Only a tooltip detail: without it the icon just says "Listening".
 	}
+}
+
+const projects = $derived(projectNames(requests.values()));
+let chosenProject = $state(DEFAULT_PROJECT);
+// A project's tab goes once its last call is deleted or cleared.
+const project = $derived(
+	projects.includes(chosenProject) ? chosenProject : DEFAULT_PROJECT,
+);
+// When each project was last viewed, for the count of new calls on its tab.
+// Calls from before the page opened are not new.
+const openedAt = Date.now();
+const lastViewed = new SvelteMap<string, number>();
+const unseen = (name: string) =>
+	countSince(requests.values(), name, lastViewed.get(name) ?? openedAt);
+
+function chooseProject(name: string) {
+	if (name === project) return;
+	const now = Date.now();
+	lastViewed.set(project, now);
+	lastViewed.set(name, now);
+	chosenProject = name;
+	selectedId = undefined;
+	pickedId = undefined;
+	picking = false;
 }
 
 // Looked up by id, so the selection stays put as new requests arrive.
@@ -62,7 +88,10 @@ function onkeydown(event: KeyboardEvent) {
 
 const visible = $derived(
 	[...requests.values()]
-		.filter((request) => matchesSearch(request, search))
+		.filter(
+			(request) =>
+				request.project === project && matchesSearch(request, search),
+		)
 		.sort(newestFirst),
 );
 
@@ -84,8 +113,12 @@ onMount(() => {
 			const request: CapturedRequest = JSON.parse(event.data);
 			requests.set(request.id, request);
 		};
-		// Clear All in any tab, or a `POST /api/clear` from elsewhere.
-		events.addEventListener('clear', () => requests.clear());
+		// Clear All in any tab, or a `POST /api/clear` from elsewhere: of one
+		// project, or of every project when none is named.
+		events.addEventListener('clear', (event) => {
+			const { project } = JSON.parse(event.data);
+			clearProject(typeof project === 'string' ? project : undefined);
+		});
 		// One call deleted, in any tab.
 		events.addEventListener('delete', (event) => {
 			const { id } = JSON.parse(event.data);
@@ -128,10 +161,23 @@ async function deleteRequest(id: string) {
 	}
 }
 
+/** Drops the calls of `name`, or every call when it is undefined. */
+function clearProject(name?: string) {
+	for (const request of [...requests.values()]) {
+		if (name === undefined || request.project === name) {
+			removeRequest(request.id);
+		}
+	}
+}
+
+/** Clear All: the project being viewed only. */
 async function clearRequests() {
+	const name = project;
 	try {
-		await fetch('/api/clear', { method: 'POST' });
-		requests.clear();
+		await fetch(`/api/clear?project=${encodeURIComponent(name)}`, {
+			method: 'POST',
+		});
+		clearProject(name);
 	} catch (err) {
 		console.error('Failed to clear requests:', err);
 	}
@@ -141,6 +187,7 @@ async function clearRequests() {
 <svelte:window {onkeydown} />
 
 <Toolbar bind:search {connected} {address} onclear={clearRequests} />
+<ProjectTabs {projects} current={project} {unseen} onchoose={chooseProject} />
 
 <div class="panes">
   <section class="list" class:picking aria-label="Captured requests">
