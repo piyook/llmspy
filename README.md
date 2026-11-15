@@ -1,6 +1,6 @@
 # LLMSpy
 
-A lightweight local developer tool that shows LLM API traffic in real time, with next to no setup.
+A lightweight local developer tool that shows LLM API traffic in real time, with next to no setup, to you in a web UI and to coding agents through a small local API.
 
 - **Live capture**: every call to Anthropic, OpenAI or any other upstream you add shows up as soon as it is sent and is filled in when the reply ends, and streamed replies still stream to the app
 - **Conversation view**: system prompt, tools, messages, tool calls matched to their results, and the reply with its stop reason and token use
@@ -9,6 +9,7 @@ A lightweight local developer tool that shows LLM API traffic in real time, with
 - **Projects**: tag each app's base URL to give its calls their own tab
 - **Reads three formats**: Anthropic Messages, OpenAI Chat Completions and OpenAI Responses, streamed or not
 - **Kept across restarts**: the last 7 days of calls, in one file on your machine, listed by day with older days folded away, and today's narrowed to the last 5 to 90 minutes in one click
+- **Agent friendly**: coding agents and scripts can list, search and read the captured calls as JSON, or one call as Markdown, and wait for a running call to end, from the same port; [llms.txt](llms.txt) tells them how
 - **Lightweight**: one command to start, one base URL to set in your app; no certificates or accounts
 
 ![LLMSpy showing a coding agent's call as a conversation: the user's question, the assistant's tool calls and the tool results](docs/screenshots/conversation.png)
@@ -25,6 +26,7 @@ Use it to:
 - debug failing or odd requests: errors, status codes, latency
 - understand token-heavy calls and why they cost what they do
 - compare what different tools send for the same task
+- let a coding agent check what an app it is building or debugging really sent and got back, without you copying anything across
 
 It is deliberately small, and quick to set up:
 
