@@ -655,6 +655,65 @@ describe('ProxyServer', () => {
 		});
 	});
 
+	describe('/api/stats', () => {
+		it('counts the calls the filters match, per project too', async () => {
+			const upstream = await startUpstream((req, res) => {
+				req.resume();
+				res.statusCode = req.url?.includes('limited') ? 429 : 200;
+				res.end('{}');
+			});
+			const { base, store } = await startProxy(upstream);
+			for (const path of [
+				'/fake/ok',
+				'/@my-app/fake/limited',
+				'/@my-app/fake/ok',
+			]) {
+				await readAll(
+					await request(`${base}${path}`, { method: 'POST' }),
+				);
+			}
+			await vi.waitFor(() =>
+				expect(
+					store.getRequests().filter(({ timings }) => timings.end),
+				).toHaveLength(3),
+			);
+			const stats = async (query: string) => {
+				const res = await request(`${base}/api/stats${query}`);
+				return {
+					status: res.statusCode,
+					body: (await readAll(res)).toString(),
+				};
+			};
+
+			const all = JSON.parse((await stats('')).body);
+			expect(all).toMatchObject({ calls: 3, running: 0, failed: 1 });
+			expect(all.byModel.none.calls).toBe(3);
+			expect(all.byProject.general.calls).toBe(1);
+			expect(all.byProject['my-app']).toMatchObject({
+				calls: 2,
+				failed: 1,
+			});
+			expect(all.latencyMs.max).toBeGreaterThanOrEqual(all.latencyMs.p50);
+
+			const mine = JSON.parse(
+				(await stats('?project=my-app&failed=1')).body,
+			);
+			expect(mine).toMatchObject({ calls: 1, failed: 1 });
+			expect(Object.keys(mine.byProject)).toEqual(['my-app']);
+		});
+
+		it('answers 400 to limit, full and a filter it can not read', async () => {
+			const { base } = await startProxy(
+				await startUpstream((_req, res) => res.end()),
+			);
+			for (const query of ['?limit=5', '?full=1', '?status=4x']) {
+				const res = await request(`${base}/api/stats${query}`);
+				expect(res.statusCode).toBe(400);
+				expect((await readAll(res)).toString()).toMatch(/^LLMSpy: /);
+			}
+		});
+	});
+
 	it('returns one full record from /api/requests/<id>', async () => {
 		const upstream = await startUpstream((req, res) => {
 			req.resume();

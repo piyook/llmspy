@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseListRequest, parseWait } from './query.js';
+import { parseListRequest, parseStatsRequest, parseWait } from './query.js';
 
 const parse = (query: string) => parseListRequest(new URLSearchParams(query));
 
@@ -103,6 +103,35 @@ describe('parseListRequest', () => {
 	it('refuses a name that can not be a project', () => {
 		expect(parse('project=Not%20One')).toEqual({
 			error: expect.stringContaining('is not a project name'),
+		});
+	});
+});
+
+describe('parseStatsRequest', () => {
+	const stats = (query: string) =>
+		parseStatsRequest(new URLSearchParams(query));
+
+	it('reads the filters of the list', () => {
+		expect(stats('project=my-app&q=hi&since=1000&failed=1')).toEqual({
+			query: {
+				project: 'my-app',
+				search: 'hi',
+				since: 1000,
+				limit: undefined,
+				failed: true,
+			},
+		});
+	});
+
+	it('refuses limit and full, and a filter it can not read', () => {
+		expect(stats('limit=5')).toEqual({
+			error: 'limit does not apply to /api/stats.',
+		});
+		expect(stats('full=1')).toEqual({
+			error: 'full does not apply to /api/stats.',
+		});
+		expect(stats('status=4x')).toEqual({
+			error: expect.stringContaining('status must be'),
 		});
 	});
 });
