@@ -54,6 +54,23 @@ export function parseListRequest(params: URLSearchParams): ListRequest {
 	};
 }
 
+/** What `GET /api/stats` was asked for, or why it can not be answered. */
+export type StatsRequest = { query: CallQuery } | { error: string };
+
+/**
+ * Reads the parameters of `GET /api/stats`: the filters of `GET /api/requests`.
+ * `limit` and `full` are errors, since the counts are over every match.
+ */
+export function parseStatsRequest(params: URLSearchParams): StatsRequest {
+	for (const name of ['limit', 'full']) {
+		if (params.has(name)) {
+			return { error: `${name} does not apply to /api/stats.` };
+		}
+	}
+	const asked = parseListRequest(params);
+	return 'error' in asked ? asked : { query: asked.query };
+}
+
 /**
  * Reads `model` (any text), `status` (`429`, or a class such as `5xx`) and
  * `failed=1`. Only the filters given are set.

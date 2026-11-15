@@ -4,8 +4,9 @@ import { forwardAndCapture } from './capture.js';
 import { toMarkdown } from './conversation.js';
 import { isAllowedUiRequest } from './guard.js';
 import { exchangeParser } from './parsers/index.js';
-import { parseListRequest, parseWait } from './query.js';
+import { parseListRequest, parseStatsRequest, parseWait } from './query.js';
 import { serveStatic } from './static.js';
+import { toStats } from './stats.js';
 import type { RequestStore } from './store.js';
 import { toSummary } from './summary.js';
 import type { CapturedRequest, ProxyConfig } from './types.js';
@@ -73,6 +74,10 @@ export class ProxyServer {
 		}
 		if (path === '/api/requests') {
 			this.handleGetRequests(res, url);
+			return;
+		}
+		if (path === '/api/stats') {
+			this.handleGetStats(res, url);
 			return;
 		}
 		if (path === '/api/upstreams') {
@@ -269,6 +274,17 @@ export class ProxyServer {
 			: this.store.summaries(asked.query);
 		res.writeHead(200, { 'Content-Type': 'application/json' });
 		res.end(JSON.stringify(calls));
+	}
+
+	/** `GET /api/stats`: counts over the calls the filters of `GET /api/requests` match. */
+	private handleGetStats(res: http.ServerResponse, url: string): void {
+		const asked = parseStatsRequest(new URLSearchParams(url.split('?')[1]));
+		if ('error' in asked) {
+			this.badRequest(res, asked.error);
+			return;
+		}
+		res.writeHead(200, { 'Content-Type': 'application/json' });
+		res.end(JSON.stringify(toStats(this.store.summaries(asked.query))));
 	}
 
 	/** `GET /api/requests/<id>`: the full record. */
