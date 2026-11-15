@@ -32,18 +32,20 @@ async function startUpstream(handler: http.RequestListener): Promise<string> {
 }
 
 async function startProxy(upstreamUrl: string) {
-	const store = new RequestStore(10);
+	const store = new RequestStore();
 	const proxy = new ProxyServer(
 		{
 			port: 0,
 			host: '127.0.0.1',
 			upstreams: new Map([['fake', new URL(upstreamUrl)]]),
-			maxRequests: 10,
 		},
 		store,
 	);
 	const port = await proxy.start();
-	cleanups.push(() => proxy.stop());
+	cleanups.push(async () => {
+		await proxy.stop();
+		store.close();
+	});
 	return { store, base: `http://127.0.0.1:${port}` };
 }
 

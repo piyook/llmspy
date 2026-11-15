@@ -39,13 +39,12 @@ export async function startRig(model: string, upstream: string): Promise<Rig> {
 		port: 0,
 		settings: { delayMin: 0, delayMax: 0 },
 	});
-	const store = new RequestStore(50);
+	const store = new RequestStore();
 	const proxy = new ProxyServer(
 		{
 			port: 0,
 			host: '127.0.0.1',
 			upstreams: new Map([[upstream, new URL(llmock.url)]]),
-			maxRequests: 50,
 		},
 		store,
 	);

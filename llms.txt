@@ -6,7 +6,7 @@
 
 - One HTTP server, on `http://127.0.0.1:8080` by default, serves three things: `/<upstream>/...` is forwarded to an LLM API, `/ping`, `/events` and `/api/*` serve the captured traffic, and anything else is a file of the built web UI.
 - Forwarding is a byte-for-byte passthrough, chunk by chunk, so streamed replies still stream to the app. LLMSpy never changes a request or a response.
-- It keeps the newest 500 calls, in memory only. They are lost when it stops or restarts, and nothing is written to disk.
+- It keeps calls in a SQLite file, `~/.llmspy/llmspy.db` (Docker: the `llmspy-data` volume), so they survive a restart. Calls older than `LLMSPY_RETENTION_DAYS` (default 7) are removed at startup and every hour. A running call is written when it starts, when its response headers arrive and when it ends; the updates in between are held in memory. A call still running when LLMSpy stopped gets `error: "interrupted: LLMSpy stopped before the call ended"` and `timings.end` set to when its last data arrived.
 - `authorization` and `x-api-key` headers are masked in what it records (`Bearer ••••abcd`: the scheme and the last 4 characters of a long key). Prompts, replies and every other header are recorded as sent.
 - A call is recorded as soon as its request body has arrived, updated when the response headers arrive, and completed when the exchange ends: when the response has been sent in full, the upstream failed, or the client hung up. Until then `timings.end` is absent. A streamed reply (`text/event-stream`, not compressed) is also updated at most every 500 ms with what has arrived so far; any other reply body stays empty until the exchange ends.
 - It does not intercept traffic (no MITM, no CA certificate). An app that has no base URL setting can not be watched.
@@ -25,7 +25,7 @@ From the repository root (`npm install` once first, except for Docker). Running 
 - Ready when `GET http://127.0.0.1:8080/ping` answers `200`. `npm start` and `npm run dev` stay in the foreground: run them in the background and poll `/ping`.
 - All three use port 8080. Stop one before starting another; a second start on a taken port fails with `EADDRINUSE` and exits `1`.
 - `npm start` writes `~/.llmspy/llmspy.pid` (`{"pid", "url"}`) once it listens. `npm run stop` stops that process only if `/ping` at that URL reports the same pid, so a stale file is removed and nothing else is killed. It exits `0` when LLMSpy is stopped or was not running. It does not stop Docker or `npm run dev`.
-- `npm start` prints the base URL of each upstream on startup. A bad `LLMSPY_UPSTREAMS` prints the reason and exits `1`.
+- `npm start` prints the database file and how long calls are kept (`Calls kept 7 days in …`), then the base URL of each upstream. A bad `LLMSPY_UPSTREAMS` or `LLMSPY_RETENTION_DAYS` prints the reason and exits `1`.
 
 ## Point an app at it
 
@@ -50,6 +50,7 @@ Environment variables, read once at startup:
 | `PROXY_PORT` | `8080` | Port for everything. Not passed into Docker: there it is always `8080` |
 | `LLMSPY_HOST` | `127.0.0.1` | Interface to listen on. The Docker image sets `0.0.0.0` and compose publishes the port on `127.0.0.1` only |
 | `LLMSPY_UPSTREAMS` | empty | Extra or replacement upstreams, as comma-separated `name=url` |
+| `LLMSPY_RETENTION_DAYS` | `7` | Days to keep calls, a whole number; `0` keeps them until cleared. Passed into Docker from `.env` |
 
 `LLMSPY_UPSTREAMS`:
 
@@ -71,7 +72,7 @@ LLMSPY_UPSTREAMS=ollama=http://localhost:11434,llmock=http://127.0.0.1:8001 npm 
 | `GET /api/requests` | `200`, a JSON array of the summary of every record, newest first (below). `?project=<name>` keeps that project's (`400` when the name can not be a project); `?q=<text>` keeps those whose `host`, `path`, request body or response body holds the text, ignoring case. Both together keep calls that match both |
 | `GET /api/requests/<id>` | `200`, the full record; `404` when no record has that `id` |
 | `GET /api/upstreams` | `200`, a JSON array of `{"name","target"}` in configuration order; any user name or password in `target` is removed |
-| `POST /api/clear` | `200 {"success":true}`: every record is deleted and every `/events` client is sent a `clear` event. No body needed. With `?project=<name>` only that project's records are deleted; `400` when the name can not be a project |
+| `POST /api/clear` | `200 {"success":true}`: every record is deleted (from the database file too) and every `/events` client is sent a `clear` event. No body needed. With `?project=<name>` only that project's records are deleted; `400` when the name can not be a project |
 | `DELETE /api/requests/<id>` | `204`: that record is deleted and every `/events` client is sent a `delete` event; `404` when no record has that `id`. A call still running is stored again when it next updates |
 | `GET /events` | Server-Sent Events: on connect the summary of every stored record, newest first, then a record's summary each time it is captured or updated. Each summary is one `data: <summary JSON>` line with no `event:` name; read the full record from `GET /api/requests/<id>`. When the records are cleared it sends `event: clear` with `data: {}`: drop every record you hold; `data: {"project":"<name>"}` when only one project was: drop that project's records. When one record is deleted it sends `event: delete` with `data: {"id":"<id>"}`: drop that record. A call arrives several times with the same `id` (more often while a reply streams): replace by `id`, and treat it as finished once `timings.end` is set |
 
@@ -96,7 +97,7 @@ Each record from `/api/requests/<id>`:
 | `response` | `{"status","headers","body"}`, body decompressed and decoded. Absent until the response headers arrive, and when the upstream never answered; `body` is `""` until the call ends, except for a streamed reply, which holds what has arrived so far |
 | `timings` | `{"start","firstByte"?,"lastData"?,"end"?}`, epoch ms; `firstByte` is when the response headers arrived, `lastData` when the latest chunk of a streamed reply arrived (only for the uncompressed streams updated while they arrive); no `end` while the call is still running. On a running stream, `lastData` shows how long it has been quiet |
 | `latency` | `end - start`, ms; absent while the call is still running |
-| `error` | Set when the exchange failed: `Upstream request failed: …` (never reached; the app got `502`), `Upstream response failed: …` (the reply broke off), `Client closed the connection before the response finished` |
+| `error` | Set when the exchange failed: `Upstream request failed: …` (never reached; the app got `502`), `Upstream response failed: …` (the reply broke off), `Client closed the connection before the response finished`, `interrupted: LLMSpy stopped before the call ended` |
 | `llm` | The call read as an LLM API call, below. Absent when the path is not one LLMSpy knows |
 
 A streamed response body is the raw SSE text. A body that can not be decompressed is replaced by `[LLMSpy could not decode this body: …]`.
@@ -169,4 +170,5 @@ Without an API key: `npm run mock` starts mock LLM APIs (Anthropic Messages on `
 
 - Do not set `LLMSPY_HOST` to `0.0.0.0` outside Docker, or publish the Docker port as anything but `127.0.0.1:8080:8080`: forwarding and the UI would be open to the network.
 - Do not save or commit captured records: they hold whole prompts and replies, and the masked key's last 4 characters.
-- Do not rely on records surviving a restart, or on more than the newest 500.
+- Do not rely on records older than `LLMSPY_RETENTION_DAYS`.
+- Do not read or change `llmspy.db` directly: use the routes above. Its layout is not part of this reference.
