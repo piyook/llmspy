@@ -3,9 +3,15 @@ import { onMount } from 'svelte';
 import { SvelteMap } from 'svelte/reactivity';
 import DayHeader from './DayHeader.svelte';
 import Detail from './Detail.svelte';
+import EmptyList from './EmptyList.svelte';
 import { previousCall } from './lib/compare.js';
 import { dayKey, dayLabel, groupByDay } from './lib/days.js';
-import { countSince, DEFAULT_PROJECT, projectNames } from './lib/projects.js';
+import {
+	countByProject,
+	countSince,
+	DEFAULT_PROJECT,
+	projectNames,
+} from './lib/projects.js';
 import { fullRecord } from './lib/record.svelte.js';
 import { callState, newestFirst } from './lib/requests.js';
 import type { CallSummary, Tab } from './lib/types.js';
@@ -101,31 +107,34 @@ function onkeydown(event: KeyboardEvent) {
 	if (event.key === 'Escape') picking = false;
 }
 
-// The ids of the calls in the project shown that match `search`, from the
-// proxy, which holds the bodies; undefined until the first answer.
-let matches = $state.raw<Set<string>>();
+// The calls of every project that match `search`, from the proxy, which
+// holds the bodies; undefined until the first answer.
+let found = $state.raw<CallSummary[]>();
+// Without calls deleted since the answer.
+const matched = $derived(found?.filter(({ id }) => requests.has(id)));
+const matches = $derived(matched && new Set(matched.map(({ id }) => id)));
+// How many matches each project has, for its tab.
+const matchCounts = $derived(matched && countByProject(matched));
 // The search is run again when a call ends, since its reply may match.
 const finished = $derived(
-	[...requests.values()].filter(
-		(call) => call.project === project && callState(call) === 'done',
-	).length,
+	[...requests.values()].filter((call) => callState(call) === 'done').length,
 );
 $effect(() => {
 	const term = search;
-	const name = project;
 	void finished;
 	if (!term) {
-		matches = undefined;
+		found = undefined;
 		return;
 	}
 	let stale = false;
 	const timer = setTimeout(async () => {
 		try {
-			const query = new URLSearchParams({ project: name, q: term });
-			const res = await fetch(`/api/requests?${query}`);
+			const res = await fetch(
+				`/api/requests?${new URLSearchParams({ q: term })}`,
+			);
 			if (!res.ok) return;
-			const found: CallSummary[] = await res.json();
-			if (!stale) matches = new Set(found.map(({ id }) => id));
+			const calls: CallSummary[] = await res.json();
+			if (!stale) found = calls;
 		} catch (err) {
 			console.error('Failed to search requests:', err);
 		}
@@ -135,6 +144,14 @@ $effect(() => {
 		clearTimeout(timer);
 	};
 });
+
+// The other projects with matches, named when the one shown has none.
+const elsewhere = $derived(
+	projects.flatMap((name): [string, number][] => {
+		const count = matchCounts?.get(name) ?? 0;
+		return name !== project && count > 0 ? [[name, count]] : [];
+	}),
+);
 
 const visible = $derived(
 	[...requests.values()]
@@ -262,7 +279,13 @@ async function clearRequests() {
 <svelte:window {onkeydown} />
 
 <Toolbar bind:search {connected} {address} onclear={clearRequests} />
-<ProjectTabs {projects} current={project} {unseen} onchoose={chooseProject} />
+<ProjectTabs
+  {projects}
+  current={project}
+  {unseen}
+  matches={search ? matchCounts : undefined}
+  onchoose={chooseProject}
+/>
 
 <div class="panes">
   <section class="list" class:picking aria-label="Captured requests">
@@ -295,11 +318,7 @@ async function clearRequests() {
         {/if}
       </div>
     {:else}
-      <div class="no-requests">
-        {search
-          ? 'No requests match your search'
-          : 'No requests captured yet. Point an app at LLMSpy, e.g. ANTHROPIC_BASE_URL=http://127.0.0.1:8080/anthropic'}
-      </div>
+      <EmptyList {project} {search} {elsewhere} onchoose={chooseProject} />
     {/each}
   </section>
 

@@ -746,6 +746,28 @@ body {
 	text-align: center;
 }
 
+/* While searching: a tab's number of matches, outlined to tell it from new calls. */
+.match-badge {
+	border: 1px solid var(--accent);
+	background: transparent;
+	color: var(--accent);
+}
+
+/* While searching, a tab with no matches. */
+.project-tabs .tab.no-match {
+	opacity: 0.5;
+}
+
+/* "Found in:" buttons in the empty list, which open those projects. */
+.found-in {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: 0.4rem;
+	margin-top: 0.5rem;
+	font-style: normal;
+}
+
 .small-btn {
 	padding: 0.2rem 0.6rem;
 	border: 1px solid var(--border);

@@ -88,7 +88,7 @@ To keep each app's calls apart, put `/@<project>` in front of the prefix. Each p
 $env:ANTHROPIC_BASE_URL = "http://127.0.0.1:8080/@my-app/anthropic"
 ```
 
-Calls without a tag go to `general`. A project name is lowercase letters, digits and dashes, like an upstream name. The tabs appear once there is a project besides `general`; a tab you are not viewing counts its new calls, and Clear All empties only the project you are viewing.
+Calls without a tag go to `general`. A project name is lowercase letters, digits and dashes, like an upstream name. The tabs appear once there is a project besides `general`; a tab you are not viewing counts its new calls. A search looks in every project: while it is on, each tab counts its matches instead. Clear All empties only the project you are viewing.
 
 ![Project tabs under the header: general, site-agent (selected, its three calls listed) and support-bot with a badge for two new calls](docs/screenshots/projects.png)
 

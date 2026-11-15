@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { countSince, projectNames } from './projects.js';
+import {
+	countByProject,
+	countSince,
+	projectNames,
+	tabBadge,
+} from './projects.js';
 import type { CapturedRequest } from './types.js';
 
 function call(project: string, start = 0): CapturedRequest {
@@ -31,6 +36,58 @@ describe('projectNames', () => {
 				call('zeta'),
 			]),
 		).toEqual(['general', 'alpha', 'zeta']);
+	});
+});
+
+describe('countByProject', () => {
+	it('counts the calls of each project', () => {
+		expect(
+			countByProject([
+				call('app', 1),
+				call('general', 2),
+				call('app', 3),
+			]),
+		).toEqual(
+			new Map([
+				['app', 2],
+				['general', 1],
+			]),
+		);
+	});
+
+	it('is empty for no calls', () => {
+		expect(countByProject([]).size).toBe(0);
+	});
+});
+
+describe('tabBadge', () => {
+	const unseen = (project: string) => (project === 'app' ? 3 : 0);
+
+	it('counts new calls, none on the tab being viewed', () => {
+		expect(tabBadge('app', 'general', unseen)).toEqual({
+			count: 3,
+			match: false,
+			label: 'new',
+		});
+		expect(tabBadge('app', 'app', unseen).count).toBe(0);
+	});
+
+	it('counts matches while searching, on every tab', () => {
+		const matches = new Map([
+			['app', 1],
+			['general', 2],
+		]);
+		expect(tabBadge('app', 'general', unseen, matches)).toEqual({
+			count: 1,
+			match: true,
+			label: 'match',
+		});
+		expect(tabBadge('general', 'general', unseen, matches)).toEqual({
+			count: 2,
+			match: true,
+			label: 'matches',
+		});
+		expect(tabBadge('other', 'general', unseen, matches).count).toBe(0);
 	});
 });
 

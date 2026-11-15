@@ -41,8 +41,9 @@ const base = $derived(`${location.protocol}//${address ?? DEFAULT_ADDRESS}`);
       </li>
       <li>Run your app as usual. Its calls go through LLMSpy unchanged.</li>
       <li>
-        Each call appears on the left as it finishes. Pick one to see it as a
-        conversation, or the raw request and response.
+        Each call appears on the left as soon as it is sent, and is filled in
+        when the reply ends. Pick one to see it as a conversation, or the raw
+        request and response.
       </li>
     </ol>
 
@@ -58,10 +59,15 @@ const base = $derived(`${location.protocol}//${address ?? DEFAULT_ADDRESS}`);
         <code class="help-code">ANTHROPIC_BASE_URL={base}/@my-app/anthropic</code>
         Calls without it go to <code>general</code>.
       </li>
+      <li>
+        Search looks in every project, prompts and replies included; each tab
+        shows its number of matches.
+      </li>
       <li>API keys are masked. Prompts and replies are shown in full.</li>
       <li>
-        Calls are kept in memory only: the latest 500, gone when LLMSpy
-        restarts. Clear All empties the project you are viewing.
+        Calls are kept in a file on your machine, so they survive a restart:
+        the last 7 days unless <code>LLMSPY_RETENTION_DAYS</code> says
+        otherwise. Clear All empties the project you are viewing.
       </li>
     </ul>
 
