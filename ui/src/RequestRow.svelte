@@ -17,12 +17,14 @@ let {
 	comparing = false,
 	compared = false,
 	onselect,
+	ondelete,
 }: {
 	request: CapturedRequest;
 	selected: boolean;
 	comparing?: boolean;
 	compared?: boolean;
 	onselect: () => void;
+	ondelete: () => void;
 } = $props();
 
 const phase = $derived(callState(request));
@@ -49,6 +51,33 @@ const replyError = $derived(
 );
 </script>
 
+<!-- The delete button is beside the row, not in it: a button can't hold
+     another. It is left out while the call runs, since the next update
+     would store the call again. -->
+<div class="row-wrap">
+{#if phase === 'done'}
+  <button
+    type="button"
+    class="row-delete"
+    aria-label="Delete this call"
+    title="Delete this call"
+    onclick={ondelete}
+  >
+    <svg
+      viewBox="0 0 24 24"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
+    </svg>
+  </button>
+{/if}
 <button
   type="button"
   class="row"
@@ -108,3 +137,4 @@ const replyError = $derived(
     </span>
   {/if}
 </button>
+</div>

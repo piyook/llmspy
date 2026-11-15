@@ -452,6 +452,46 @@ body {
 	border-color: var(--accent);
 }
 
+/* A row and its delete button, which sits in the row's left padding. */
+.row-wrap {
+	position: relative;
+}
+
+.row-wrap .row {
+	padding-left: 2rem;
+}
+
+/* Shown while the pointer is over the row, or the row or button has focus. */
+.row-delete {
+	position: absolute;
+	top: 50%;
+	left: 0.35rem;
+	z-index: 1;
+	display: flex;
+	padding: 0.2rem;
+	border: none;
+	border-radius: 4px;
+	background: transparent;
+	color: var(--text-faint);
+	cursor: pointer;
+	opacity: 0;
+	transform: translateY(-50%);
+}
+
+.row-wrap:hover .row-delete,
+.row-wrap:focus-within .row-delete {
+	opacity: 1;
+}
+
+.row-delete:hover {
+	color: var(--danger);
+}
+
+.row-delete:focus-visible {
+	opacity: 1;
+	outline: 2px solid var(--accent);
+}
+
 .row.selected {
 	border-color: var(--accent);
 	background: var(--surface-selected);
@@ -954,4 +994,6 @@ body {
 	color: var(--text-faint);
 	font-style: italic;
 	margin: 2rem 0;
+	/* The hint's example URL has no spaces and is wider than the list. */
+	overflow-wrap: anywhere;
 }

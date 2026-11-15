@@ -86,6 +86,11 @@ onMount(() => {
 		};
 		// Clear All in any tab, or a `POST /api/clear` from elsewhere.
 		events.addEventListener('clear', () => requests.clear());
+		// One call deleted, in any tab.
+		events.addEventListener('delete', (event) => {
+			const { id } = JSON.parse(event.data);
+			if (typeof id === 'string') removeRequest(id);
+		});
 		// EventSource retries a dropped connection by itself. It stops for
 		// good (CLOSED) only on an HTTP error, e.g. the Vite dev proxy's 5xx
 		// while the proxy restarts, so only then open a new one.
@@ -103,6 +108,25 @@ onMount(() => {
 		events?.close();
 	};
 });
+
+function removeRequest(id: string) {
+	requests.delete(id);
+	if (selectedId === id) {
+		selectedId = undefined;
+		picking = false;
+	}
+	if (pickedId === id) pickedId = undefined;
+}
+
+async function deleteRequest(id: string) {
+	try {
+		const res = await fetch(`/api/requests/${id}`, { method: 'DELETE' });
+		// 404: already gone, e.g. deleted in another tab.
+		if (res.ok || res.status === 404) removeRequest(id);
+	} catch (err) {
+		console.error('Failed to delete request:', err);
+	}
+}
 
 async function clearRequests() {
 	try {
@@ -133,6 +157,7 @@ async function clearRequests() {
         {comparing}
         compared={comparing && request.id === other?.id}
         onselect={() => onrowclick(request.id)}
+        ondelete={() => deleteRequest(request.id)}
       />
     {:else}
       <div class="no-requests">
