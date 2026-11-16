@@ -45,6 +45,7 @@ export async function startRig(model: string, upstream: string): Promise<Rig> {
 			port: 0,
 			host: '127.0.0.1',
 			upstreams: new Map([[upstream, new URL(llmock.url)]]),
+			version: '0.0.0',
 		},
 		store,
 	);

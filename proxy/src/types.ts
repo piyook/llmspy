@@ -78,4 +78,6 @@ export interface ProxyConfig {
 	upstreams: Map<string, URL>;
 	/** Folder of the built UI (`ui/dist`), served on the same port. */
 	uiDir?: string;
+	/** LLMSpy's version (`proxy/package.json`), reported by `/ping`. */
+	version: string;
 }

@@ -8,11 +8,13 @@ let {
 	search = $bindable(''),
 	connected,
 	address,
+	version,
 	onclear,
 }: {
 	search: string;
 	connected: boolean;
 	address?: string;
+	version?: string;
 	onclear: () => void;
 } = $props();
 </script>
@@ -33,6 +35,6 @@ let {
     />
     <button type="button" class="clear-btn" onclick={onclear}>Clear All</button>
     <HelpPopover address={connected ? address : undefined} />
-    <SettingsPopover />
+    <SettingsPopover {version} />
   </div>
 </div>

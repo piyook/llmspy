@@ -2,6 +2,7 @@
 import { loadTheme, setTheme, THEMES, type Theme } from './lib/theme';
 import Popover from './Popover.svelte';
 
+let { version }: { version?: string } = $props();
 let theme = $state<Theme>(loadTheme());
 </script>
 
@@ -42,4 +43,7 @@ let theme = $state<Theme>(loadTheme());
       {/each}
     </div>
   </fieldset>
+  {#if version}
+    <p class="setting-version">LLMSpy {version}</p>
+  {/if}
 </Popover>
