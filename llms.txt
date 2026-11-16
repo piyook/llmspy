@@ -40,6 +40,7 @@ Set the app's base URL to LLMSpy plus the upstream's path prefix, then start the
 - The app's API key is sent through to the provider as usual. LLMSpy needs no key.
 - An app in another container reaches the proxy at `http://host.docker.internal:8080/<prefix>`, or by service name in the same compose project. Forwarding answers any `Host`; only the traffic endpoints below are limited to loopback.
 - To group an app's calls into a project, put `/@<project>` in front of the prefix: `ANTHROPIC_BASE_URL=http://127.0.0.1:8080/@my-app/anthropic`. It is not forwarded, and sets the record's `project`; without it the project is `general`. Project names follow the same rule as upstream names (below); any other name gets the `404` for an unknown prefix.
+- An app with no base-URL setting can't be pointed at LLMSpy directly. LLMSpy has no intercepting mode; the README section "Apps without a base-URL setting" has a mitmproxy add-on (an untested starting point) that rewrites `https://api.anthropic.com/...` to `http://127.0.0.1:8080/anthropic/...`. Run mitmproxy on another port (`--listen-port 8081`), as LLMSpy uses 8080. Ask the user before installing mitmproxy or trusting its CA.
 
 ## Configuration
 
@@ -179,6 +180,7 @@ Without an API key: `npm run mock` starts mock LLM APIs (Anthropic Messages on `
 ## Do not
 
 - Do not set `LLMSPY_HOST` to `0.0.0.0` outside Docker, or publish the Docker port as anything but `127.0.0.1:8080:8080`: forwarding and the UI would be open to the network.
+- Do not add mitmproxy's CA (or any intercepting proxy's) to the system certificate store, or intercept an app on someone else's machine: trust it only in the app being watched (for Node, `NODE_EXTRA_CA_CERTS`).
 - Do not save or commit captured records: they hold whole prompts and replies, and the masked key's last 4 characters.
 - Do not rely on records older than `LLMSPY_RETENTION_DAYS`.
 - Do not read or change `llmspy.db` directly: use the routes above. Its layout is not part of this reference.
