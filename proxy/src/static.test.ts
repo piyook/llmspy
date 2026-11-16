@@ -27,6 +27,7 @@ beforeAll(async () => {
 			host: '127.0.0.1',
 			upstreams: new Map([['fake', new URL('http://127.0.0.1:1')]]),
 			uiDir,
+			version: '0.0.0',
 		},
 		new RequestStore(),
 	);

@@ -52,13 +52,19 @@ let selectedId = $state<string>();
 let connected = $state(false);
 // Where the proxy listens, e.g. `127.0.0.1:8080`, shown in the status tooltip.
 let address = $state<string>();
+// The proxy's version, shown in Settings.
+let version = $state<string>();
 
-async function loadAddress() {
+async function loadPing() {
 	try {
-		const { port } = await (await fetch('/ping')).json();
-		if (typeof port === 'number') address = `${location.hostname}:${port}`;
+		const ping = await (await fetch('/ping')).json();
+		if (typeof ping.port === 'number') {
+			address = `${location.hostname}:${ping.port}`;
+		}
+		if (typeof ping.version === 'string') version = ping.version;
 	} catch {
-		// Only a tooltip detail: without it the icon just says "Listening".
+		// Only details: without them the icon just says "Listening" and
+		// Settings shows no version.
 	}
 }
 
@@ -250,7 +256,7 @@ onMount(() => {
 			// rows from before a proxy restart would otherwise stay forever.
 			requests.clear();
 			// Again on every reconnect: a restarted proxy may use another port.
-			loadAddress();
+			loadPing();
 		};
 		events.onmessage = (event) => {
 			const call: CallSummary = JSON.parse(event.data);
@@ -329,7 +335,7 @@ async function clearRequests() {
 
 <svelte:window {onkeydown} />
 
-<Toolbar bind:search {connected} {address} onclear={clearRequests} />
+<Toolbar bind:search {connected} {address} {version} onclear={clearRequests} />
 <ProjectTabs
   {projects}
   current={project}

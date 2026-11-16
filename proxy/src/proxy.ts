@@ -333,6 +333,7 @@ export class ProxyServer {
 			JSON.stringify({
 				status: 'running',
 				message: 'LLMSpy proxy server is running',
+				version: this.config.version,
 				// The port really bound, so the UI can show it even when it is
 				// served from elsewhere (Vite in dev).
 				port: (this.server.address() as AddressInfo).port,

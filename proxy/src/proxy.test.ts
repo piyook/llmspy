@@ -38,6 +38,7 @@ async function startProxy(upstreamUrl: string) {
 			port: 0,
 			host: '127.0.0.1',
 			upstreams: new Map([['fake', new URL(upstreamUrl)]]),
+			version: '9.9.9-test',
 		},
 		store,
 	);
@@ -313,13 +314,14 @@ describe('ProxyServer', () => {
 		expect(captured.response).toBeUndefined();
 	});
 
-	it('reports the port it is listening on from /ping', async () => {
+	it('reports its port, pid and version from /ping', async () => {
 		const { base } = await startProxy('http://127.0.0.1:1');
 
 		const res = await request(`${base}/ping`);
 		const body = JSON.parse((await readAll(res)).toString());
 		expect(body.port).toBe(Number(new URL(base).port));
 		expect(body.pid).toBe(process.pid);
+		expect(body.version).toBe('9.9.9-test');
 	});
 
 	it('lists the upstreams at /api/upstreams', async () => {
