@@ -164,7 +164,9 @@ LLMSPY_UPSTREAMS=openrouter=https://openrouter.ai/api/v1,ollama=http://host.dock
 npm run start:docker
 ```
 
-Inside the container `localhost` is the container itself, so an upstream running on your machine, such as Ollama or the [mocks](#testing-without-an-api-key), is `host.docker.internal`. External URLs are the same as when running locally, and apps are still pointed at `http://127.0.0.1:8080/<name>` from your machine.
+Inside the container `localhost` is the container itself, so an upstream running on your machine, such as Ollama or the [mocks](#testing-without-an-api-key), is `host.docker.internal`. External URLs are the same as when running locally.
+
+The same goes for an app that runs in a container: its `localhost` is its own container, so point it at `http://host.docker.internal:8080/<name>`. An app running directly on your machine uses `http://127.0.0.1:8080/<name>`. If the upstream also runs in a container (a mock server, say), LLMSpy reaches it at `http://host.docker.internal:<published port>`. This works as it is with Docker Desktop. On Linux, `host.docker.internal` doesn't reach a port bound only to `127.0.0.1`, which includes LLMSpy's own port and Ollama's default. So put the containers on one Docker network instead, and address them by container name: `http://llmspy:8080/<name>` from the app, and the upstream's name and its container port in `LLMSPY_UPSTREAMS`.
 
 The same `.env` serves both, except for upstreams on your machine: a local run reaches them at `localhost`, Docker at `host.docker.internal`. If you switch between the two, override the variable in the shell for local runs.
 
@@ -246,7 +248,8 @@ Anything else gets random lorem ipsum. Both mocks stream when the request sets `
 
 - **The app still calls the provider directly.** Check that it reads the base URL variable you set, and that it was started after you set it.
 - **404 from LLMSpy.** The path prefix doesn't match an upstream; the response lists the known ones.
-- **502 from LLMSpy.** The upstream could not be reached; the request in the UI shows the error.
+- **The app reports a connection error and nothing appears in LLMSpy.** The app can't reach LLMSpy. If the app runs in a container, `localhost` is that container (see [With Docker](#with-docker)).
+- **502 from LLMSpy.** The upstream could not be reached; the request in the UI shows the error. With Docker, an upstream on your machine or in another container is not at `localhost` (see [With Docker](#with-docker)).
 
 ## License
 
