@@ -23,6 +23,25 @@ A lightweight local developer tool that shows LLM API traffic in real time, with
 
 ![LLMSpy showing a coding agent's call as a conversation: the user's question, the assistant's tool calls and the tool results](docs/screenshots/conversation.png)
 
+## Contents
+
+- [Why](#why)
+- [What you see](#what-you-see)
+- [Quick start](#quick-start)
+- [Upstreams](#upstreams)
+  - [Adding one](#adding-one)
+  - [Running locally](#running-locally)
+  - [With Docker](#with-docker)
+  - [Checking them](#checking-them)
+  - [Apps without a base-URL setting](#apps-without-a-base-url-setting)
+- [Configuration](#configuration)
+  - [Storage](#storage)
+- [How it works](#how-it-works)
+- [Development](#development)
+  - [Testing without an API key](#testing-without-an-api-key)
+- [Troubleshooting](#troubleshooting)
+- [License](#license)
+
 ## Why
 
 Apps and agents built on LLMs hide most of what they send. SDKs, frameworks and coding agents add their own system prompts, tool definitions, retries and parameters, and the actual request and response are rarely logged anywhere you can read them. When an agent misbehaves, burns tokens, or gives a strange answer, the first question is "what did it actually send to the model, and what came back?", and that is usually the hardest one to answer.
