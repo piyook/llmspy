@@ -285,6 +285,12 @@ body {
 	accent-color: var(--accent);
 }
 
+.setting-version {
+	margin: 0.75rem 0 0;
+	font-size: 0.85rem;
+	color: var(--text-muted);
+}
+
 /* Header popovers (Base URLs, Settings), under their buttons. */
 .popover-wrapper {
 	position: relative;

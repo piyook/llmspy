@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import * as path from 'node:path';
 import { writePidFile } from './pidfile.js';
@@ -9,8 +9,18 @@ import { parseUpstreams } from './upstreams.js';
 
 // Built layout: proxy/dist/index.js next to ui/dist/ (also in the image).
 const uiDir = path.resolve(import.meta.dirname, '../../ui/dist');
+// proxy/package.json, from src/ (tsx) and dist/ alike; the image copies it too.
+const packageFile = path.resolve(import.meta.dirname, '../package.json');
 const dbFile = path.join(homedir(), '.llmspy', 'llmspy.db');
 const HOUR_MS = 60 * 60 * 1000;
+
+function readVersion(): string {
+	const { version } = JSON.parse(readFileSync(packageFile, 'utf8'));
+	if (typeof version !== 'string') {
+		throw new Error(`No version in ${packageFile}`);
+	}
+	return version;
+}
 
 let config: ProxyConfig;
 let store: RequestStore;
@@ -21,6 +31,7 @@ try {
 		host: process.env.LLMSPY_HOST ?? '127.0.0.1',
 		upstreams: parseUpstreams(process.env.LLMSPY_UPSTREAMS),
 		uiDir,
+		version: readVersion(),
 	};
 	retentionDays = parseRetentionDays(process.env.LLMSPY_RETENTION_DAYS);
 	mkdirSync(path.dirname(dbFile), { recursive: true });
@@ -53,7 +64,9 @@ async function start(): Promise<void> {
 			...[...config.upstreams.keys()].map((n) => n.length),
 		);
 
-		console.log(`LLMSpy listening on ${config.host}:${port}`);
+		console.log(
+			`LLMSpy ${config.version} listening on ${config.host}:${port}`,
+		);
 		console.log(`Calls kept ${keptFor} in ${dbFile}`);
 		if (existsSync(path.join(uiDir, 'index.html'))) {
 			console.log(`UI: ${base}/\n`);
