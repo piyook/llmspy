@@ -18,6 +18,11 @@ describe('loadEnvFile', () => {
 		expect(loadEnvFile(path.join(dir, 'missing.env'))).toBe(false);
 	});
 
+	it('throws when the file can not be read', () => {
+		// A folder can not be read as a file (EISDIR).
+		expect(() => loadEnvFile(dir)).toThrow();
+	});
+
 	it('sets the variables in the file', () => {
 		writeFileSync(file, '# a comment\nLLMSPY_TEST_FROM_FILE=a=https://x\n');
 		expect(loadEnvFile(file)).toBe(true);

@@ -1,4 +1,3 @@
-import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import * as path from 'node:path';
 
@@ -13,7 +12,11 @@ export const ENV_FILE = path.join(homedir(), '.llmspy', '.env');
  * variable already set (in the shell) is left as it is, so it wins.
  */
 export function loadEnvFile(file = ENV_FILE): boolean {
-	if (!existsSync(file)) return false;
-	process.loadEnvFile(file);
-	return true;
+	try {
+		process.loadEnvFile(file);
+		return true;
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+		throw error;
+	}
 }
