@@ -59,7 +59,7 @@ Environment variables, read once at startup:
 
 `LLMSPY_UPSTREAMS`:
 
-- Each entry adds the prefix `/<name>`. A name that is already there (`anthropic`, `openai`) is replaced.
+- Each entry adds the prefix `/<name>`. A name that is already there (`anthropic`, `openai`) is replaced. A name given twice in `LLMSPY_UPSTREAMS` is refused, so two upstreams always need different names.
 - Names are lowercase letters, digits and dashes, starting with a letter or digit. `api`, `assets`, `events` and `ping` are refused.
 - URLs must be `http` or `https`. A path in the URL is kept and the request path is appended: `gw=https://gateway.example/v1` sends `/gw/messages` to `https://gateway.example/v1/messages`.
 - Set it in the shell, or in a settings file. For `llmspy` (the npm package) that file is `~/.llmspy/.env`: `LLMSPY_UPSTREAMS=llmock=http://127.0.0.1:8001 npx --yes llmspy` for one run, or a line `LLMSPY_UPSTREAMS=...` in `~/.llmspy/.env` to keep it. `llmspy` never reads a `.env` in the current folder: that is usually the app's own, with its API keys, so do not write LLMSpy settings there. The shell wins over the file; `llmspy` prints `Settings read from <file>` when the file exists, and exits `1` if it can not be read.
@@ -146,7 +146,7 @@ Only `2xx` responses are parsed. For a `4xx`/`5xx` call, `llm` has the request f
 | What the app gets | Why | In the record |
 |---|---|---|
 | `404 text/plain` `LLMSpy: no upstream for <path>. Known prefixes: …` | The first path segment is not an upstream | Nothing recorded |
-| `502 text/plain` `LLMSpy could not reach <origin>: …` | DNS, connection or TLS failure to the upstream | `error`, no `response` |
+| `502 text/plain` `LLMSpy could not reach <origin>: …` | DNS, connection or TLS failure to the upstream. A refused connection adds `(nothing accepted the connection: is the server running, on that port?)`: usually a local upstream that is not started, or a wrong port | `error`, no `response` |
 | The connection is cut | The upstream's reply broke off part-way | `error`, `response` with what arrived |
 | The provider's own status and body | Anything the provider answered, `4xx`/`5xx` included | `response` as sent |
 | `403 text/plain` | A traffic endpoint called with another `Host` or `Origin` (above) | Nothing recorded |

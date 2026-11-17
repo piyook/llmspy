@@ -128,6 +128,25 @@ export function isLiveStream(headers: http.IncomingHttpHeaders): boolean {
 	);
 }
 
+/**
+ * Why a request never reached the upstream, as told to the app and stored.
+ * A host with several addresses (`localhost`: ::1 and 127.0.0.1) fails with
+ * an AggregateError whose own message is empty, so its parts are used.
+ * A refused connection most often means a local server that is not started.
+ */
+export function failureReason(
+	error: NodeJS.ErrnoException & { errors?: unknown[] },
+): string {
+	const parts = (error.errors ?? [])
+		.map((part) => (part instanceof Error ? part.message : ''))
+		.filter(Boolean);
+	const reason =
+		error.message || parts.join(', ') || error.code || 'unknown error';
+	return error.code === 'ECONNREFUSED'
+		? `${reason} (nothing accepted the connection: is the server running, on that port?)`
+		: reason;
+}
+
 export interface CaptureHandlers {
 	/**
 	 * The exchange so far, while it runs: once the request body has arrived,
@@ -257,14 +276,13 @@ export function forwardAndCapture(
 	});
 
 	upstreamReq.on('error', (error) => {
-		finish(`Upstream request failed: ${error.message}`);
+		const reason = failureReason(error);
+		finish(`Upstream request failed: ${reason}`);
 		if (res.headersSent) {
 			res.destroy();
 		} else {
 			res.writeHead(502, { 'content-type': 'text/plain; charset=utf-8' });
-			res.end(
-				`LLMSpy could not reach ${target.origin}: ${error.message}`,
-			);
+			res.end(`LLMSpy could not reach ${target.origin}: ${reason}`);
 		}
 	});
 

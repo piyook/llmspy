@@ -10,50 +10,62 @@ const NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 /**
  * Builds the upstream map from the defaults plus `LLMSPY_UPSTREAMS`,
  * a comma-separated list of `name=url` (e.g. `ollama=http://localhost:11434`).
- * A name that matches a default replaces it.
+ * A name that matches a default replaces it; a name given twice is an error,
+ * since only one of the two could be kept.
  */
 export function parseUpstreams(spec?: string): Map<string, URL> {
 	const upstreams = new Map<string, URL>();
 	for (const [name, url] of Object.entries(DEFAULT_UPSTREAMS)) {
 		upstreams.set(name, new URL(url));
 	}
+	const given = new Set<string>();
 
 	for (const entry of (spec ?? '').split(',')) {
 		const trimmed = entry.trim();
 		if (!trimmed) continue;
 
-		const eq = trimmed.indexOf('=');
-		if (eq < 1) {
+		const [name, url] = parseEntry(trimmed);
+		if (given.has(name)) {
 			throw new Error(
-				`LLMSPY_UPSTREAMS: expected name=url, got "${trimmed}"`,
+				`LLMSPY_UPSTREAMS: "${name}" is given more than once; each upstream needs its own name`,
 			);
 		}
-		const name = trimmed.slice(0, eq).trim().toLowerCase();
-		const rawUrl = trimmed.slice(eq + 1).trim();
-
-		if (!NAME_PATTERN.test(name) || RESERVED_NAMES.has(name)) {
-			throw new Error(
-				`LLMSPY_UPSTREAMS: "${name}" is not a usable name (lowercase letters, digits and dashes; not ${[...RESERVED_NAMES].join(', ')})`,
-			);
-		}
-
-		let url: URL;
-		try {
-			url = new URL(rawUrl);
-		} catch {
-			throw new Error(
-				`LLMSPY_UPSTREAMS: "${rawUrl}" for ${name} is not a valid URL`,
-			);
-		}
-		if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-			throw new Error(
-				`LLMSPY_UPSTREAMS: ${name} must use http or https, got ${url.protocol}`,
-			);
-		}
+		given.add(name);
 		upstreams.set(name, url);
 	}
 
 	return upstreams;
+}
+
+/** One trimmed `name=url` entry of `LLMSPY_UPSTREAMS`, checked. */
+function parseEntry(entry: string): [string, URL] {
+	const eq = entry.indexOf('=');
+	if (eq < 1) {
+		throw new Error(`LLMSPY_UPSTREAMS: expected name=url, got "${entry}"`);
+	}
+	const name = entry.slice(0, eq).trim().toLowerCase();
+	const rawUrl = entry.slice(eq + 1).trim();
+
+	if (!NAME_PATTERN.test(name) || RESERVED_NAMES.has(name)) {
+		throw new Error(
+			`LLMSPY_UPSTREAMS: "${name}" is not a usable name (lowercase letters, digits and dashes; not ${[...RESERVED_NAMES].join(', ')})`,
+		);
+	}
+
+	let url: URL;
+	try {
+		url = new URL(rawUrl);
+	} catch {
+		throw new Error(
+			`LLMSPY_UPSTREAMS: "${rawUrl}" for ${name} is not a valid URL`,
+		);
+	}
+	if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+		throw new Error(
+			`LLMSPY_UPSTREAMS: ${name} must use http or https, got ${url.protocol}`,
+		);
+	}
+	return [name, url];
 }
 
 export interface UpstreamInfo {
