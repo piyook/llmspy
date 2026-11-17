@@ -1,6 +1,6 @@
 {
 	"name": "llmspy",
-	"version": "0.5.0",
+	"version": "0.5.1",
 	"description": "Local developer tool for intercepting and displaying LLM API traffic",
 	"license": "MIT",
 	"author": "piyook",
