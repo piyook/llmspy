@@ -1,10 +1,10 @@
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import * as path from 'node:path';
-import { notifyReady } from './background.js';
 import { hostForUrl } from './guard.js';
 import { writePidFile } from './pidfile.js';
 import { ProxyServer } from './proxy.js';
+import { notifyReady } from './ready.js';
 import { parseRetentionDays, RequestStore } from './store.js';
 import type { ProxyConfig } from './types.js';
 import { parseUpstreams } from './upstreams.js';

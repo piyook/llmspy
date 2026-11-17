@@ -1,14 +1,13 @@
 // `llmspy --background`: starts LLMSpy in the background and returns once it
 // is listening. The background process is a plain `llmspy`, with its output in
 // a log file; it loads ~/.llmspy/.env itself, so what it says about that is in
-// the log too. It says it is listening with a message on an IPC channel, so
-// readiness does not depend on the pid file, which LLMSpy may fail to write.
-// `llmspy stop` stops it, as it would a foreground one.
+// the log too. It says it is listening with a message on an IPC channel
+// (ready.ts), so readiness does not depend on the pid file, which LLMSpy may
+// fail to write. `llmspy stop` stops it, as it would a foreground one.
 import { type ChildProcess, spawn } from 'node:child_process';
 import type { EventEmitter } from 'node:events';
 import {
 	closeSync,
-	fstatSync,
 	mkdirSync,
 	openSync,
 	readFileSync,
@@ -17,34 +16,51 @@ import {
 import { homedir } from 'node:os';
 import * as path from 'node:path';
 import { checkPidFile, PID_FILE } from './pidfile.js';
+import { BACKGROUND_ENV, READY } from './ready.js';
 
-/** What the background LLMSpy prints. A start moves the last one to LOG_FILE.old. */
+/** The background LLMSpy's output. */
 const LOG_FILE = path.join(homedir(), '.llmspy', 'llmspy.log');
-
-/** Set for the background process, which then reports on the IPC channel. */
-const BACKGROUND_ENV = 'LLMSPY_BACKGROUND';
-const READY = 'llmspy:ready';
+/**
+ * A new run writes here, and the file becomes LOG_FILE (the last one moving
+ * to LOG_FILE.old) only once it is listening: a start that fails leaves the
+ * log of an LLMSpy that may still be running alone.
+ */
+const NEW_LOG_FILE = `${LOG_FILE}.new`;
 /** Generous: startup prunes and checks the database before it listens. */
 const TIMEOUT_MS = 60_000;
+/** How long a process that timed out gets to end once it is told to. */
+const STOP_MS = 3000;
 /** Lines of the log shown when the background LLMSpy did not start. */
 const TAIL_LINES = 20;
+/** The Node flags passed on to the background process: loaders, such as tsx's. */
+const LOADER_FLAGS = new Set([
+	'--import',
+	'--require',
+	'-r',
+	'--loader',
+	'--experimental-loader',
+]);
 
+type Failed = { kind: 'failed'; error: Error };
+type Waited =
+	| { kind: 'ready' }
+	| { kind: 'exited' }
+	| { kind: 'timeout' }
+	| Failed;
+/** What became of the launch: a timeout says whether the process ended once told to. */
 type Outcome =
-	| { kind: 'ready' | 'exited' | 'timeout' }
-	| { kind: 'failed'; error: Error };
-
-/** Run by LLMSpy once it listens: tells `llmspy --background` it is ready. */
-export function notifyReady(): void {
-	if (process.env[BACKGROUND_ENV] === '1') process.send?.({ type: READY });
-}
+	| { kind: 'ready' }
+	| { kind: 'exited' }
+	| { kind: 'timeout'; stopped: boolean }
+	| Failed;
 
 /** Waits for `child` to say it is ready, to exit, to fail to start, or for `timeoutMs`. */
 export function waitUntilReady(
 	child: EventEmitter,
 	timeoutMs = TIMEOUT_MS,
-): Promise<Outcome> {
+): Promise<Waited> {
 	return new Promise((resolve) => {
-		const done = (outcome: Outcome) => {
+		const done = (outcome: Waited) => {
 			clearTimeout(timer);
 			child.off('message', onMessage);
 			child.off('exit', onExit);
@@ -64,30 +80,65 @@ export function waitUntilReady(
 	});
 }
 
+/** Resolves true once `child` has exited, false if it has not within `ms`. */
+export function waitForExit(
+	child: Pick<EventEmitter, 'once' | 'off'> & {
+		exitCode: number | null;
+		signalCode: string | null;
+	},
+	ms = STOP_MS,
+): Promise<boolean> {
+	if (child.exitCode !== null || child.signalCode !== null)
+		return Promise.resolve(true);
+	return new Promise((resolve) => {
+		const onExit = () => {
+			clearTimeout(timer);
+			resolve(true);
+		};
+		const timer = setTimeout(() => {
+			child.off('exit', onExit);
+			resolve(false);
+		}, ms);
+		child.once('exit', onExit);
+	});
+}
+
+/** The loader flags in `execArgv` (`--import x` or `--import=x`), and nothing else, such as `--inspect`. */
+export function loaderArgs(execArgv: readonly string[]): string[] {
+	const kept: string[] = [];
+	for (let i = 0; i < execArgv.length; i++) {
+		const arg = execArgv[i];
+		const [flag] = arg.split('=', 1);
+		if (!LOADER_FLAGS.has(flag)) continue;
+		if (arg.includes('=')) kept.push(arg);
+		else if (i + 1 < execArgv.length) kept.push(arg, execArgv[++i]);
+	}
+	return kept;
+}
+
 /** The command that stops LLMSpy, as this one was run: npm sets npm_command for npx. */
 export function stopCommand(env = process.env): string {
 	return env.npm_command === 'exec' ? 'npx llmspy stop' : 'llmspy stop';
 }
 
-/**
- * Opens a new log, moving the last one to LOG_FILE.old: a rename leaves a
- * file that another LLMSpy still writes to intact, where emptying it would
- * not. If it can't be moved, the new output is added to its end.
- */
-function openLog(): number {
-	mkdirSync(path.dirname(LOG_FILE), { recursive: true });
+/** The new run's log becomes LOG_FILE; resolves with where its output now is. */
+function keepNewLog(): string {
 	try {
 		renameSync(LOG_FILE, `${LOG_FILE}.old`);
 	} catch {
-		// No log yet, or it can't be moved.
+		// No log yet, or it can't be moved: the new one replaces it below.
 	}
-	return openSync(LOG_FILE, 'a');
+	try {
+		renameSync(NEW_LOG_FILE, LOG_FILE);
+		return LOG_FILE;
+	} catch {
+		return NEW_LOG_FILE;
+	}
 }
 
-/** What the log holds after byte `from`: the background LLMSpy's own output. */
-function readLog(from: number): string {
+function readLog(file: string): string {
 	try {
-		return readFileSync(LOG_FILE).subarray(from).toString('utf8');
+		return readFileSync(file, 'utf8');
 	} catch {
 		return '';
 	}
@@ -111,34 +162,30 @@ export async function startInBackground(): Promise<number> {
 		return 0;
 	}
 
-	const { outcome, pid, from } = await launch();
+	const { outcome, pid } = await launch();
 	if (outcome.kind === 'ready') {
-		process.stdout.write(readLog(from));
+		const log = keepNewLog();
+		process.stdout.write(readLog(log));
 		console.log(
-			`\nRunning in the background (pid ${pid}). Log: ${LOG_FILE}\nStop it with: ${stopCommand()}`,
+			`\nRunning in the background (pid ${pid}). Log: ${log}\nStop it with: ${stopCommand()}`,
 		);
 		return 0;
 	}
-	return reportFailure(outcome, from);
+	return reportFailure(outcome, pid);
 }
 
-/**
- * Starts a plain `llmspy` detached, its output in a new log, and waits for it.
- * Resolves with the outcome, its pid, and where its output starts in the log.
- */
+/** Starts a plain `llmspy` detached, its output in NEW_LOG_FILE, and waits for it. */
 async function launch(): Promise<{
 	outcome: Outcome;
 	pid: number | undefined;
-	from: number;
 }> {
-	const log = openLog();
-	const from = fstatSync(log).size;
+	mkdirSync(path.dirname(LOG_FILE), { recursive: true });
+	const log = openSync(NEW_LOG_FILE, 'w');
 	let child: ChildProcess;
 	try {
-		// execArgv keeps a loader such as tsx's when the CLI runs from source.
 		child = spawn(
 			process.execPath,
-			[...process.execArgv, process.argv[1]],
+			[...loaderArgs(process.execArgv), process.argv[1]],
 			{
 				detached: true,
 				stdio: ['ignore', log, log, 'ipc'],
@@ -149,29 +196,53 @@ async function launch(): Promise<{
 	} finally {
 		closeSync(log);
 	}
-	const outcome = await waitUntilReady(child);
-	if (outcome.kind === 'timeout') child.kill();
+	// Kept for the whole launch: a kill or disconnect that fails after the
+	// wait must not crash the launcher.
+	child.on('error', () => {});
+
+	const waited = await waitUntilReady(child);
+	let outcome: Outcome;
+	if (waited.kind === 'timeout') {
+		child.kill();
+		outcome = { kind: 'timeout', stopped: await waitForExit(child) };
+	} else {
+		outcome = waited;
+	}
 	if (child.connected) child.disconnect();
 	child.unref();
-	return { outcome, pid: child.pid, from };
+	return { outcome, pid: child.pid };
 }
 
-/** Says why the background LLMSpy did not start, and returns the exit code. */
-function reportFailure(outcome: Outcome, from: number): number {
-	if (outcome.kind === 'failed') {
-		console.error(`Could not start LLMSpy: ${outcome.error.message}`);
-		return 1;
+/** Why the background LLMSpy (`pid`) did not start. */
+export function failureMessage(
+	outcome: Exclude<Outcome, { kind: 'ready' }>,
+	pid: number | undefined,
+): string {
+	const within = `LLMSpy did not start within ${TIMEOUT_MS / 1000} s`;
+	switch (outcome.kind) {
+		case 'failed':
+			return `Could not start LLMSpy: ${outcome.error.message}`;
+		case 'timeout':
+			return outcome.stopped
+				? `${within}, so it was stopped.`
+				: `${within} and may still be running (pid ${pid}).`;
+		case 'exited':
+			return 'LLMSpy did not start.';
 	}
-	console.error(
-		outcome.kind === 'timeout'
-			? `LLMSpy did not start within ${TIMEOUT_MS / 1000} s, so it was stopped.`
-			: 'LLMSpy did not start.',
-	);
-	const tail = readLog(from)
-		.trimEnd()
-		.split('\n')
-		.slice(-TAIL_LINES)
-		.join('\n');
-	if (tail) console.error(`From ${LOG_FILE}:\n${tail}`);
+}
+
+/** The last `count` lines of `text`, without its trailing newline. */
+export function lastLines(text: string, count = TAIL_LINES): string {
+	return text.trimEnd().split('\n').slice(-count).join('\n');
+}
+
+/** Says why the background LLMSpy did not start, with the end of its log, and returns the exit code. */
+function reportFailure(
+	outcome: Exclude<Outcome, { kind: 'ready' }>,
+	pid: number | undefined,
+): number {
+	console.error(failureMessage(outcome, pid));
+	const tail = lastLines(readLog(NEW_LOG_FILE));
+	if (tail) console.error(`From ${NEW_LOG_FILE}:\n${tail}`);
 	return 1;
 }

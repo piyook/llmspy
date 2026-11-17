@@ -7,6 +7,12 @@ import { checkPidFile, PID_FILE, pingPid } from './pidfile.js';
 const POLL_MS = 100;
 const POLLS = 50;
 
+const NOT_RUNNING = {
+	none: 'no pid file',
+	invalid: 'removed an unreadable pid file',
+	stale: 'removed a stale pid file',
+} as const;
+
 /** Stops the LLMSpy recorded in `file`, and resolves with the exit code. */
 export async function stop(file = PID_FILE): Promise<number> {
 	let state: Awaited<ReturnType<typeof checkPidFile>>;
@@ -16,21 +22,12 @@ export async function stop(file = PID_FILE): Promise<number> {
 		console.error(`Could not read ${file}: ${(error as Error).message}`);
 		return 1;
 	}
-	if (state.kind === 'none') {
-		console.log('LLMSpy is not running (no pid file).');
-		return 0;
-	}
-	if (state.kind === 'invalid') {
-		rmSync(file, { force: true });
-		console.log('LLMSpy is not running (removed an unreadable pid file).');
-		return 0;
-	}
 	// A pid file left by a process that died without cleaning up may name a
 	// pid the system has since given to something else: only stop it if
 	// LLMSpy at the recorded URL says it is that process.
-	if (state.kind === 'stale') {
-		rmSync(file, { force: true });
-		console.log('LLMSpy is not running (removed a stale pid file).');
+	if (state.kind !== 'running') {
+		if (state.kind !== 'none') rmSync(file, { force: true });
+		console.log(`LLMSpy is not running (${NOT_RUNNING[state.kind]}).`);
 		return 0;
 	}
 	const { pid, url } = state;
