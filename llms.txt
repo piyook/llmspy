@@ -18,14 +18,14 @@ Running without Docker needs Node.js 26 or later (`engines` in `package.json`); 
 
 | How | Start | Stop |
 |---|---|---|
-| npm package | `npx llmspy` (or `llmspy`, after `npm install -g llmspy`) | `npx llmspy stop` (`llmspy stop`), from any terminal |
+| npm package | `npx --yes llmspy` (or `llmspy`, after `npm install -g llmspy`) | `npx --yes llmspy stop` (`llmspy stop`), from any terminal |
 | Docker (runs in the background, restarts with Docker) | `npm run start:docker` (`docker compose up -d --build`) | `npm run stop:docker` (`docker compose down`) |
 | Built, local | `npm run build`, then `npm start` | `npm run stop`, from any terminal |
 | Development, with reload | `npm run dev` (UI also on `http://localhost:3000`) | Ctrl+C in its terminal |
 
-- Ready when `GET http://127.0.0.1:8080/ping` answers `200`. `llmspy`, `npm start` and `npm run dev` stay in the foreground: run them in the background and poll `/ping`.
+- Ready when `GET http://127.0.0.1:8080/ping` answers `200`. `llmspy`, `npm start` and `npm run dev` stay in the foreground: run them in the background and poll `/ping`. Pass `--yes` to `npx`, or the first run waits for an answer to "Ok to proceed?" before installing the package, which blocks a run in the background.
 - All of them use port 8080. Stop one before starting another; a second start on a taken port fails with `EADDRINUSE` and exits `1`.
-- `llmspy` and `npm start` write `~/.llmspy/llmspy.pid` (`{"pid", "url"}`) once they listen. `llmspy stop` (in a clone, `npm run stop` runs the same) stops that process only if `/ping` at that URL reports the same pid, so a stale file is removed and nothing else is killed. It exits `0` when LLMSpy is stopped or was not running. It does not stop Docker or `npm run dev`.
+- `llmspy`, `npm start` and `npm run dev` write `~/.llmspy/llmspy.pid` (`{"pid", "url"}`) once they listen. `llmspy stop` (in a clone, `npm run stop` runs the same) stops that process only if `/ping` at that URL reports the same pid, so a stale or unreadable file is removed and nothing else is killed. It exits `0` when LLMSpy is stopped or was not running, and `1` when it did not stop within 5 seconds or the pid file could not be read. It does not stop Docker. For `npm run dev` it stops the proxy, but the watcher starts it again on the next file change: stop `npm run dev` with Ctrl+C.
 - `llmspy --help` lists the commands and settings, `llmspy --version` prints the version. Any other argument exits `1`; on Node.js older than 26 `llmspy` says so and exits `1`.
 - On start LLMSpy prints the database file and how long calls are kept (`Calls kept 7 days in …`), then the base URL of each upstream. A bad `LLMSPY_UPSTREAMS` or `LLMSPY_RETENTION_DAYS` prints the reason and exits `1`.
 
@@ -60,7 +60,8 @@ Environment variables, read once at startup:
 - Each entry adds the prefix `/<name>`. A name that is already there (`anthropic`, `openai`) is replaced.
 - Names are lowercase letters, digits and dashes, starting with a letter or digit. `api`, `assets`, `events` and `ping` are refused.
 - URLs must be `http` or `https`. A path in the URL is kept and the request path is appended: `gw=https://gateway.example/v1` sends `/gw/messages` to `https://gateway.example/v1/messages`.
-- Set it in the shell or in `.env` at the repo root (next to `compose.yaml`). `npm start`, `npm run dev` and `docker compose up` all read `.env`; in local runs a variable already set in the shell wins. `llmspy` (the npm package) reads `~/.llmspy/.env` instead, not a `.env` in the current folder, and the shell wins there too; it prints `Settings read from <file>` when the file exists, and exits `1` if it can not be read. `.env` is read at start: restart LLMSpy (or rerun `npm run start:docker`) after changing it.
+- Set it in the shell, or in a settings file. For `llmspy` (the npm package) that file is `~/.llmspy/.env`: `LLMSPY_UPSTREAMS=llmock=http://127.0.0.1:8001 npx --yes llmspy` for one run, or a line `LLMSPY_UPSTREAMS=...` in `~/.llmspy/.env` to keep it. `llmspy` never reads a `.env` in the current folder: that is usually the app's own, with its API keys, so do not write LLMSpy settings there. The shell wins over the file; `llmspy` prints `Settings read from <file>` when the file exists, and exits `1` if it can not be read.
+- In a clone of the repository, `npm start`, `npm run dev` and `docker compose up` read `.env` at the repo root (next to `compose.yaml`) instead; in local runs a variable already set in the shell wins. Settings files are read at start: restart LLMSpy (or rerun `npm run start:docker`) after changing one.
 - Inside the container `localhost` is the container: an upstream on the host is `http://host.docker.internal:<port>`. Locally it is `localhost`, so a `.env` with `host.docker.internal` upstreams is for Docker only.
 
 ```bash

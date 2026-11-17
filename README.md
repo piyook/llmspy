@@ -18,6 +18,7 @@ A lightweight local developer tool that shows LLM API traffic in real time, with
 - **Kept across restarts**: the last 7 days of calls, in one file on your machine, listed by day with older days folded away; one click narrows today's calls to the last 5 to 90 minutes, another to the failed ones
 - **Agent friendly**: coding agents and scripts can list, search and read the captured calls as JSON, or one call as Markdown, count their tokens, failures and latency, and wait for a running call to end, all on the same port; [llms.txt](llms.txt) tells them how
 - **Lightweight**: one command to start, one base URL to set in your app; no certificates or accounts
+- **No runtime dependencies**: the npm package installs nothing else; the proxy uses only Node.js's own modules, and the UI's two libraries (Svelte and jsdiff) are built into its files
 
 ![LLMSpy showing a coding agent's call as a conversation: the user's question, the assistant's tool calls and the tool results](docs/screenshots/conversation.png)
 
@@ -129,7 +130,7 @@ npm start
 
 Stop it with Ctrl+C, or with `npm run stop` from any terminal. Use one way at a time, as they all use port 8080.
 
-Either way, the port is open on the loopback interface only, so nothing outside your machine can reach it. Captured traffic (`/api/*`, `/events`, `/ping`) is only served to requests addressed to `localhost`, `127.0.0.1` or `[::1]`, and not to other web sites open in your browser.
+Whichever way you run it, the port is open on the loopback interface only, so nothing outside your machine can reach it. Captured traffic (`/api/*`, `/events`, `/ping`) is only served to requests addressed to `localhost`, `127.0.0.1` or `[::1]`, and not to other web sites open in your browser.
 
 ### Point an app at it
 
@@ -258,7 +259,7 @@ The same goes for an app that runs in a container: its `localhost` is its own co
 
 This works as it is with Docker Desktop. On Linux, `host.docker.internal` doesn't reach a port bound only to `127.0.0.1`, which includes LLMSpy's own port and Ollama's default. Put the containers on one Docker network instead, and address them by container name: `http://llmspy:8080/<name>` from the app, and the upstream's name and its container port in `LLMSPY_UPSTREAMS`.
 
-One `.env` serves both ways of running, except for upstreams on your machine: a local run reaches them at `localhost`, Docker at `host.docker.internal`. If you switch between the two, override the variable in the shell for local runs.
+The repo's `.env` serves both `npm start` and Docker, except for upstreams on your machine: a local run reaches them at `localhost`, Docker at `host.docker.internal`. If you switch between the two, override the variable in the shell for local runs. The `llmspy` command never reads this file, only `~/.llmspy/.env`.
 
 ### Checking your upstreams
 
