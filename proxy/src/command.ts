@@ -5,13 +5,16 @@
 /** The oldest Node major LLMSpy runs on: node:sqlite loads with no warning from 26. */
 const MIN_NODE_MAJOR = 26;
 
-type Command = 'start' | 'stop' | 'help' | 'version';
+type Command = 'start' | 'background' | 'stop' | 'help' | 'version';
 
 /** The command in `args` (argv after the script), or undefined if it is not one. */
 export function parseCommand(args: readonly string[]): Command | undefined {
 	if (args.length === 0) return 'start';
 	if (args.length > 1) return undefined;
 	switch (args[0]) {
+		case '--background':
+		case '-b':
+			return 'background';
 		case 'stop':
 			return 'stop';
 		case 'help':
@@ -37,10 +40,12 @@ export function helpText(version: string): string {
 	return `LLMSpy ${version}: shows LLM API traffic live, in a web UI on your machine.
 
 Usage:
-  llmspy             start LLMSpy in the foreground (Ctrl+C stops it)
-  llmspy stop        stop the LLMSpy running on this machine
-  llmspy --version   print the version
-  llmspy --help      show this
+  llmspy                start LLMSpy in this terminal (Ctrl+C stops it)
+  llmspy --background   start it in the background instead, with its output in
+                        ~/.llmspy/llmspy.log; also -b
+  llmspy stop           stop the LLMSpy running on this machine
+  llmspy --version      print the version
+  llmspy --help         show this
 
 Settings are environment variables, set in the shell or in ~/.llmspy/.env
 (the shell wins):

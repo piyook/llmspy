@@ -49,6 +49,37 @@ export function readPidFile(file = PID_FILE): PidRecord | 'none' | 'invalid' {
 	}
 }
 
+/** The pid that LLMSpy at `url` answers `/ping` with, or undefined if nothing does. */
+export async function pingPid(url: string): Promise<unknown> {
+	try {
+		const res = await fetch(`${url}/ping`, {
+			signal: AbortSignal.timeout(2000),
+		});
+		return ((await res.json()) as { pid?: unknown }).pid;
+	} catch {
+		return undefined;
+	}
+}
+
+/**
+ * What `file` says, checked against `/ping` at its URL: `running` only when
+ * LLMSpy there answers with the recorded pid, `stale` when nothing does or
+ * another process does. Read errors other than a missing file are thrown.
+ */
+export async function checkPidFile(
+	file = PID_FILE,
+): Promise<
+	| { kind: 'none' }
+	| { kind: 'invalid' }
+	| ({ kind: 'running' } & PidRecord)
+	| ({ kind: 'stale' } & PidRecord)
+> {
+	const record = readPidFile(file);
+	if (typeof record !== 'object') return { kind: record };
+	const answer = await pingPid(record.url);
+	return { kind: answer === record.pid ? 'running' : 'stale', ...record };
+}
+
 /** Removes the file only if it is still this process's, so a newer LLMSpy's record is left alone. */
 export function removePidFile(file = PID_FILE): void {
 	try {

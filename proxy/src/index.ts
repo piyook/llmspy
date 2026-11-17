@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import { hostForUrl } from './guard.js';
 import { writePidFile } from './pidfile.js';
 import { ProxyServer } from './proxy.js';
+import { notifyReady } from './ready.js';
 import { parseRetentionDays, RequestStore } from './store.js';
 import type { ProxyConfig } from './types.js';
 import { parseUpstreams } from './upstreams.js';
@@ -91,6 +92,7 @@ async function start(): Promise<void> {
 		console.log('\nFor example:');
 		console.log(`  ANTHROPIC_BASE_URL=${base}/anthropic`);
 		console.log(`  OPENAI_BASE_URL=${base}/openai/v1`);
+		notifyReady();
 	} catch (error) {
 		console.error('Failed to start LLMSpy:', error);
 		process.exit(1);
