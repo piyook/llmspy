@@ -301,23 +301,33 @@ describe('ProxyServer', () => {
 		expect(captured.response?.body).toBe(payload);
 	});
 
-	it('returns 502 and records the error when the upstream is unreachable', async () => {
-		const closed = http.createServer();
-		const deadUrl = await listen(closed);
-		await new Promise<void>((resolve) => closed.close(() => resolve()));
+	// `localhost` can resolve to ::1 and 127.0.0.1, which Node reports as an
+	// AggregateError with an empty message.
+	it.each(['127.0.0.1', 'localhost'])(
+		'returns 502 and records the error when the upstream at %s is not running',
+		async (host) => {
+			const closed = http.createServer();
+			const deadUrl = new URL(await listen(closed));
+			await new Promise<void>((resolve) => closed.close(() => resolve()));
+			deadUrl.hostname = host;
 
-		const { base, store } = await startProxy(deadUrl);
+			const { base, store } = await startProxy(deadUrl.href);
 
-		const res = await request(`${base}/fake/v1/messages`);
-		expect(res.statusCode).toBe(502);
-		expect((await readAll(res)).toString()).toMatch(
-			/LLMSpy could not reach/,
-		);
+			const res = await request(`${base}/fake/v1/messages`);
+			expect(res.statusCode).toBe(502);
+			expect((await readAll(res)).toString()).toMatch(
+				new RegExp(
+					`LLMSpy could not reach .*: connect ECONNREFUSED .*:${deadUrl.port}.* \\(nothing accepted the connection`,
+				),
+			);
 
-		const captured = await onlyCaptured(store);
-		expect(captured.error).toMatch(/Upstream request failed/);
-		expect(captured.response).toBeUndefined();
-	});
+			const captured = await onlyCaptured(store);
+			expect(captured.error).toMatch(
+				/^Upstream request failed: connect ECONNREFUSED .*is the server running, on that port\?\)$/,
+			);
+			expect(captured.response).toBeUndefined();
+		},
+	);
 
 	it('reports its port, pid and version from /ping', async () => {
 		const { base } = await startProxy('http://127.0.0.1:1');

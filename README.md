@@ -197,7 +197,7 @@ An upstream is an API that LLMSpy forwards to, reached through its own path pref
 
 ### Adding an upstream
 
-Set `LLMSPY_UPSTREAMS` to a comma-separated list of `name=url` before starting LLMSpy. Each entry adds the prefix `/<name>`, and a name that is already there is replaced. A path in the URL is kept and the rest of the request path is appended to it, so the app's base URL is LLMSpy's address plus the prefix:
+Set `LLMSPY_UPSTREAMS` to a comma-separated list of `name=url` before starting LLMSpy. Each entry adds the prefix `/<name>`, and a name that is already there is replaced. Giving the same name twice is an error. A path in the URL is kept and the rest of the request path is appended to it, so the app's base URL is LLMSpy's address plus the prefix:
 
 ```
 LLMSPY_UPSTREAMS=openrouter=https://openrouter.ai/api/v1

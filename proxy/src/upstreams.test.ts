@@ -27,6 +27,11 @@ describe('parseUpstreams', () => {
 		['bad name', 'My_Host=http://localhost'],
 		['invalid url', 'ollama=localhost:11434'],
 		['non-http url', 'ollama=ftp://localhost'],
+		[
+			'name given twice',
+			'mock=http://localhost:8001,mock=http://localhost:8002',
+		],
+		['name given twice in another case', 'mock=http://a,MOCK=http://b'],
 	])('rejects %s', (_label, spec) => {
 		expect(() => parseUpstreams(spec)).toThrow(/LLMSPY_UPSTREAMS/);
 	});
