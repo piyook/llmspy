@@ -13,6 +13,11 @@ if (tooOld) {
 
 const args = process.argv.slice(2);
 switch (parseCommand(args)) {
+	case 'background': {
+		const { startInBackground } = await import('./background.js');
+		process.exitCode = await startInBackground();
+		break;
+	}
 	case 'start': {
 		const { ENV_FILE, loadEnvFile } = await import('./envfile.js');
 		try {

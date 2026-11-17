@@ -110,7 +110,7 @@ With **Node.js 26 or later** (`node --version`), from any folder:
 npx llmspy
 ```
 
-This serves the proxy and the UI on `http://127.0.0.1:8080`, in the foreground. Stop it with Ctrl+C, or with `npx llmspy stop` from any terminal. To keep the `llmspy` command to hand, install it once with `npm install -g llmspy`; `llmspy --help` lists its commands and settings. `npx` runs the version it has cached, and `npx llmspy@latest` the newest.
+This serves the proxy and the UI on `http://127.0.0.1:8080`, in the foreground. Stop it with Ctrl+C, or with `npx llmspy stop` from any terminal. To run it in the background instead, use `npx llmspy --background` (`-b`): it returns once LLMSpy is ready, its output goes to `~/.llmspy/llmspy.log`, and `npx llmspy stop` stops it. To keep the `llmspy` command to hand, install it once with `npm install -g llmspy`; `llmspy --help` lists its commands and settings. `npx` runs the version it has cached, and `npx llmspy@latest` the newest.
 
 With Docker, from a clone of the repo:
 
@@ -171,6 +171,7 @@ The `llmspy` command, from npm (`npx llmspy`, or `llmspy` once installed with `n
 | Command            | What it does                                                        |
 | ------------------ | ------------------------------------------------------------------- |
 | `llmspy`           | Start LLMSpy in the foreground                                      |
+| `llmspy -b`        | Start LLMSpy in the background (`--background`)                     |
 | `llmspy stop`      | Stop LLMSpy started with `llmspy` or `npm start`, from any terminal |
 | `llmspy --help`    | List the commands and the settings                                  |
 | `llmspy --version` | Print the version                                                   |

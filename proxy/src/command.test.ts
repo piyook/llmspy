@@ -7,6 +7,8 @@ describe('parseCommand', () => {
 	});
 
 	it.each([
+		['--background', 'background'],
+		['-b', 'background'],
 		['stop', 'stop'],
 		['help', 'help'],
 		['--help', 'help'],
@@ -21,6 +23,7 @@ describe('parseCommand', () => {
 		expect(parseCommand(['start'])).toBeUndefined();
 		expect(parseCommand(['--port'])).toBeUndefined();
 		expect(parseCommand(['stop', 'now'])).toBeUndefined();
+		expect(parseCommand(['-b', 'stop'])).toBeUndefined();
 	});
 });
 
@@ -42,5 +45,6 @@ describe('helpText', () => {
 		const text = helpText('1.2.3');
 		expect(text).toContain('LLMSpy 1.2.3');
 		expect(text).toContain('llmspy stop');
+		expect(text).toContain('llmspy --background');
 	});
 });
