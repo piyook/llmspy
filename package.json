@@ -3,6 +3,25 @@
 	"version": "0.2.2",
 	"description": "Local developer tool for intercepting and displaying LLM API traffic",
 	"license": "MIT",
+	"author": "piyook",
+	"homepage": "https://github.com/piyook/llmspy#readme",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/piyook/llmspy.git"
+	},
+	"bugs": {
+		"url": "https://github.com/piyook/llmspy/issues"
+	},
+	"keywords": [
+		"llm",
+		"proxy",
+		"anthropic",
+		"openai",
+		"claude",
+		"debugging",
+		"traffic",
+		"devtools"
+	],
 	"private": true,
 	"workspaces": [
 		"proxy",
@@ -13,6 +32,7 @@
 		"dev:proxy": "npm run dev -w proxy",
 		"dev:ui": "npm run dev -w ui",
 		"build": "npm run build --workspaces",
+		"stage": "npm run build && node scripts/stage-package.mjs",
 		"start": "npm start -w proxy",
 		"stop": "node proxy/dist/cli.js stop",
 		"start:docker": "docker compose up -d --build",

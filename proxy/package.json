@@ -5,6 +5,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "tsx watch --env-file-if-exists=../.env src/index.ts",
+		"prebuild": "node -e \"fs.rmSync('dist', { recursive: true, force: true })\"",
 		"build": "tsc -p tsconfig.build.json",
 		"start": "node --env-file-if-exists=../.env dist/index.js",
 		"typecheck": "tsc --noEmit",
