@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import * as path from 'node:path';
+import { notifyReady } from './background.js';
 import { hostForUrl } from './guard.js';
 import { writePidFile } from './pidfile.js';
 import { ProxyServer } from './proxy.js';
@@ -91,6 +92,7 @@ async function start(): Promise<void> {
 		console.log('\nFor example:');
 		console.log(`  ANTHROPIC_BASE_URL=${base}/anthropic`);
 		console.log(`  OPENAI_BASE_URL=${base}/openai/v1`);
+		notifyReady();
 	} catch (error) {
 		console.error('Failed to start LLMSpy:', error);
 		process.exit(1);
