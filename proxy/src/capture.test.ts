@@ -2,6 +2,7 @@ import * as zlib from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 import {
 	decodeBody,
+	failureReason,
 	isLiveStream,
 	maskHeaders,
 	maskSecret,
@@ -33,6 +34,48 @@ describe('isLiveStream', () => {
 		expect(isLiveStream({ 'content-type': 'application/json' })).toBe(
 			false,
 		);
+	});
+});
+
+describe('failureReason', () => {
+	const failure = (message: string, code: string): NodeJS.ErrnoException =>
+		Object.assign(new Error(message), { code });
+
+	const hint =
+		'(nothing accepted the connection: is the server running, on that port?)';
+
+	it('asks whether the server is running when the connection is refused', () => {
+		expect(
+			failureReason(
+				failure('connect ECONNREFUSED 127.0.0.1:8001', 'ECONNREFUSED'),
+			),
+		).toBe(`connect ECONNREFUSED 127.0.0.1:8001 ${hint}`);
+	});
+
+	it('uses the parts of an AggregateError, whose own message is empty', () => {
+		// What Node gives for `localhost` when both ::1 and 127.0.0.1 refuse.
+		const error = Object.assign(
+			new AggregateError([
+				new Error('connect ECONNREFUSED ::1:8001'),
+				new Error('connect ECONNREFUSED 127.0.0.1:8001'),
+			]),
+			{ code: 'ECONNREFUSED' },
+		);
+		expect(failureReason(error)).toBe(
+			`connect ECONNREFUSED ::1:8001, connect ECONNREFUSED 127.0.0.1:8001 ${hint}`,
+		);
+	});
+
+	it('falls back to the code when there is no message at all', () => {
+		expect(failureReason(failure('', 'ECONNRESET'))).toBe('ECONNRESET');
+	});
+
+	it('leaves any other failure as it is', () => {
+		expect(
+			failureReason(
+				failure('getaddrinfo ENOTFOUND nope.test', 'ENOTFOUND'),
+			),
+		).toBe('getaddrinfo ENOTFOUND nope.test');
 	});
 });
 
