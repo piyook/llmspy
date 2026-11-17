@@ -13,9 +13,19 @@ if (tooOld) {
 
 const args = process.argv.slice(2);
 switch (parseCommand(args)) {
-	case 'start':
+	case 'start': {
+		const { ENV_FILE, loadEnvFile } = await import('./envfile.js');
+		try {
+			if (loadEnvFile()) console.log(`Settings read from ${ENV_FILE}`);
+		} catch (error) {
+			console.error(
+				`Could not read ${ENV_FILE}: ${(error as Error).message}`,
+			);
+			process.exit(1);
+		}
 		await import('./index.js');
 		break;
+	}
 	case 'stop': {
 		const { stop } = await import('./stop.js');
 		process.exitCode = await stop();

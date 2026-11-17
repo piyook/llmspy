@@ -60,7 +60,7 @@ Environment variables, read once at startup:
 - Each entry adds the prefix `/<name>`. A name that is already there (`anthropic`, `openai`) is replaced.
 - Names are lowercase letters, digits and dashes, starting with a letter or digit. `api`, `assets`, `events` and `ping` are refused.
 - URLs must be `http` or `https`. A path in the URL is kept and the request path is appended: `gw=https://gateway.example/v1` sends `/gw/messages` to `https://gateway.example/v1/messages`.
-- Set it in the shell or in `.env` at the repo root (next to `compose.yaml`). `npm start`, `npm run dev` and `docker compose up` all read `.env`; in local runs a variable already set in the shell wins. `llmspy` (the npm package) reads only the shell. `.env` is read at start: restart LLMSpy (or rerun `npm run start:docker`) after changing it.
+- Set it in the shell or in `.env` at the repo root (next to `compose.yaml`). `npm start`, `npm run dev` and `docker compose up` all read `.env`; in local runs a variable already set in the shell wins. `llmspy` (the npm package) reads `~/.llmspy/.env` instead, not a `.env` in the current folder, and the shell wins there too; it prints `Settings read from <file>` when the file exists, and exits `1` if it can not be read. `.env` is read at start: restart LLMSpy (or rerun `npm run start:docker`) after changing it.
 - Inside the container `localhost` is the container: an upstream on the host is `http://host.docker.internal:<port>`. Locally it is `localhost`, so a `.env` with `host.docker.internal` upstreams is for Docker only.
 
 ```bash
