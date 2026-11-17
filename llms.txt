@@ -1,6 +1,6 @@
 # LLMSpy
 
-> A local reverse proxy that records the LLM API calls an app makes and shows each one in a web UI: the prompt, the system message, the tools, the reply and the token counts. An app is pointed at it by its base URL setting (`ANTHROPIC_BASE_URL`, `OPENAI_BASE_URL`); requests are forwarded unchanged and a copy is kept. This file is the reference for AI agents and scripts and describes the repository it ships in; `README.md` is the human guide.
+> A local reverse proxy that records the LLM API calls an app makes and shows each one in a web UI: the prompt, the system message, the tools, the reply and the token counts. An app is pointed at it by its base URL setting (`ANTHROPIC_BASE_URL`, `OPENAI_BASE_URL`); requests are forwarded unchanged and a copy is kept. This file is the reference for AI agents and scripts; it ships in the repository and in the npm package `llmspy`, and `README.md` is the human guide.
 
 ## What it does and does not do
 
@@ -14,18 +14,20 @@
 
 ## Run and stop
 
-From the repository root (`npm install` once first, except for Docker). Running without Docker needs Node.js 26 or later (`engines` in `package.json`); the Docker image brings its own.
+Running without Docker needs Node.js 26 or later (`engines` in `package.json`); the Docker image brings its own. The npm package runs from any folder; the other ways run from the root of a clone of the repository (`npm install` once first, except for Docker).
 
 | How | Start | Stop |
 |---|---|---|
+| npm package | `npx llmspy` (or `llmspy`, after `npm install -g llmspy`) | `npx llmspy stop` (`llmspy stop`), from any terminal |
 | Docker (runs in the background, restarts with Docker) | `npm run start:docker` (`docker compose up -d --build`) | `npm run stop:docker` (`docker compose down`) |
 | Built, local | `npm run build`, then `npm start` | `npm run stop`, from any terminal |
 | Development, with reload | `npm run dev` (UI also on `http://localhost:3000`) | Ctrl+C in its terminal |
 
-- Ready when `GET http://127.0.0.1:8080/ping` answers `200`. `npm start` and `npm run dev` stay in the foreground: run them in the background and poll `/ping`.
-- All three use port 8080. Stop one before starting another; a second start on a taken port fails with `EADDRINUSE` and exits `1`.
-- `npm start` writes `~/.llmspy/llmspy.pid` (`{"pid", "url"}`) once it listens. `npm run stop` stops that process only if `/ping` at that URL reports the same pid, so a stale file is removed and nothing else is killed. It exits `0` when LLMSpy is stopped or was not running. It does not stop Docker or `npm run dev`.
-- `npm start` prints the database file and how long calls are kept (`Calls kept 7 days in …`), then the base URL of each upstream. A bad `LLMSPY_UPSTREAMS` or `LLMSPY_RETENTION_DAYS` prints the reason and exits `1`.
+- Ready when `GET http://127.0.0.1:8080/ping` answers `200`. `llmspy`, `npm start` and `npm run dev` stay in the foreground: run them in the background and poll `/ping`.
+- All of them use port 8080. Stop one before starting another; a second start on a taken port fails with `EADDRINUSE` and exits `1`.
+- `llmspy` and `npm start` write `~/.llmspy/llmspy.pid` (`{"pid", "url"}`) once they listen. `llmspy stop` (in a clone, `npm run stop` runs the same) stops that process only if `/ping` at that URL reports the same pid, so a stale file is removed and nothing else is killed. It exits `0` when LLMSpy is stopped or was not running. It does not stop Docker or `npm run dev`.
+- `llmspy --help` lists the commands and settings, `llmspy --version` prints the version. Any other argument exits `1`; on Node.js older than 26 `llmspy` says so and exits `1`.
+- On start LLMSpy prints the database file and how long calls are kept (`Calls kept 7 days in …`), then the base URL of each upstream. A bad `LLMSPY_UPSTREAMS` or `LLMSPY_RETENTION_DAYS` prints the reason and exits `1`.
 
 ## Point an app at it
 
@@ -58,7 +60,7 @@ Environment variables, read once at startup:
 - Each entry adds the prefix `/<name>`. A name that is already there (`anthropic`, `openai`) is replaced.
 - Names are lowercase letters, digits and dashes, starting with a letter or digit. `api`, `assets`, `events` and `ping` are refused.
 - URLs must be `http` or `https`. A path in the URL is kept and the request path is appended: `gw=https://gateway.example/v1` sends `/gw/messages` to `https://gateway.example/v1/messages`.
-- Set it in the shell or in `.env` at the repo root (next to `compose.yaml`). `npm start`, `npm run dev` and `docker compose up` all read `.env`; in local runs a variable already set in the shell wins. `.env` is read at start: restart LLMSpy (or rerun `npm run start:docker`) after changing it.
+- Set it in the shell or in `.env` at the repo root (next to `compose.yaml`). `npm start`, `npm run dev` and `docker compose up` all read `.env`; in local runs a variable already set in the shell wins. `llmspy` (the npm package) reads only the shell. `.env` is read at start: restart LLMSpy (or rerun `npm run start:docker`) after changing it.
 - Inside the container `localhost` is the container: an upstream on the host is `http://host.docker.internal:<port>`. Locally it is `localhost`, so a `.env` with `host.docker.internal` upstreams is for Docker only.
 
 ```bash
@@ -175,7 +177,7 @@ Check what an app sends for one task, without clearing anyone's calls: note the 
 
 Wait for a call to end: find its `id` (`GET /api/requests?since=<when you started>&limit=1`, or the first summary on `/events`), then `curl -s "http://127.0.0.1:8080/api/requests/$id/conversation?wait=120"` answers once it ends; use `/api/requests/$id?wait=120` for the record. If the answer still has no `timings.end` (or the Markdown header says `running`), the wait ran out: ask again. Waiting for a call that has not been sent yet is not built in: poll `GET /api/requests?since=<when you started>` until a summary shows up.
 
-Without an API key: `npm run mock` starts mock LLM APIs (Anthropic Messages on `127.0.0.1:8001`, OpenAI Chat Completions on `127.0.0.1:8002`). Start LLMSpy with `LLMSPY_UPSTREAMS=llmock=http://127.0.0.1:8001,llmock-openai=http://127.0.0.1:8002`, then `node scripts/mock-traffic.mjs` sends one call of each kind (tool call, `max_tokens`, refusal, `429`, stream error, dropped stream). The README lists the prompt markers that pick each reply.
+Without an API key, in a clone of the repository: `npm run mock` starts mock LLM APIs (Anthropic Messages on `127.0.0.1:8001`, OpenAI Chat Completions on `127.0.0.1:8002`). Start LLMSpy with `LLMSPY_UPSTREAMS=llmock=http://127.0.0.1:8001,llmock-openai=http://127.0.0.1:8002`, then `node scripts/mock-traffic.mjs` sends one call of each kind (tool call, `max_tokens`, refusal, `429`, stream error, dropped stream). The README lists the prompt markers that pick each reply.
 
 ## Do not
 
