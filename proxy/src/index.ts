@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import * as path from 'node:path';
 import { hostForUrl } from './guard.js';
@@ -12,8 +12,21 @@ import { readVersion } from './version.js';
 // Built layout: proxy/dist/index.js next to ui/dist/ (also in the image and
 // the npm package).
 const uiDir = path.resolve(import.meta.dirname, '../../ui/dist');
+// llms.txt is at the root of the repo, the image and the npm package.
+const llmsTxtFile = path.resolve(import.meta.dirname, '../../llms.txt');
 const dbFile = path.join(homedir(), '.llmspy', 'llmspy.db');
 const HOUR_MS = 60 * 60 * 1000;
+
+/** The text of llms.txt, or undefined when it is not there (then `/llms.txt` is a 404). */
+function readLlmsTxt(): string | undefined {
+	try {
+		return readFileSync(llmsTxtFile, 'utf8');
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code === 'ENOENT')
+			return undefined;
+		throw error;
+	}
+}
 
 let config: ProxyConfig;
 let store: RequestStore;
@@ -24,6 +37,7 @@ try {
 		host: process.env.LLMSPY_HOST ?? '127.0.0.1',
 		upstreams: parseUpstreams(process.env.LLMSPY_UPSTREAMS),
 		uiDir,
+		llmsTxt: readLlmsTxt(),
 		version: readVersion(),
 	};
 	retentionDays = parseRetentionDays(process.env.LLMSPY_RETENTION_DAYS);

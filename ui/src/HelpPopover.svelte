@@ -75,6 +75,11 @@ const base = $derived(`${location.protocol}//${address ?? DEFAULT_ADDRESS}`);
         The cards at the top count the calls in the list: how many, how many
         failed, their tokens and their latency.
       </li>
+      <li>
+        Coding agents and scripts can read the captured calls too; point them
+        at the reference:
+        <code class="help-code">{base}/llms.txt</code>
+      </li>
       <li>API keys are masked. Prompts and replies are shown in full.</li>
       <li>
         Calls are kept in a file on your machine, so they survive a restart:

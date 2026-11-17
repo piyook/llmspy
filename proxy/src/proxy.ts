@@ -68,6 +68,14 @@ export class ProxyServer {
 			this.handlePing(res);
 			return;
 		}
+		if (
+			path === '/llms.txt' &&
+			this.config.llmsTxt !== undefined &&
+			(req.method === 'GET' || req.method === 'HEAD')
+		) {
+			this.handleLlmsTxt(req, res, this.config.llmsTxt);
+			return;
+		}
 		if (path === '/events') {
 			this.handleSSE(req, res);
 			return;
@@ -325,6 +333,21 @@ export class ProxyServer {
 	private badRequest(res: http.ServerResponse, message: string): void {
 		res.writeHead(400, { 'content-type': 'text/plain; charset=utf-8' });
 		res.end(`LLMSpy: ${message}`);
+	}
+
+	/** `GET /llms.txt`: the reference for agents. Not guarded: it holds no captured data. */
+	private handleLlmsTxt(
+		req: http.IncomingMessage,
+		res: http.ServerResponse,
+		text: string,
+	): void {
+		res.writeHead(200, {
+			'content-type': 'text/plain; charset=utf-8',
+			'content-length': Buffer.byteLength(text),
+			'cache-control': 'no-cache',
+			'x-content-type-options': 'nosniff',
+		});
+		res.end(req.method === 'HEAD' ? undefined : text);
 	}
 
 	private handlePing(res: http.ServerResponse): void {
