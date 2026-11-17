@@ -42,7 +42,8 @@ Usage:
   llmspy --version   print the version
   llmspy --help      show this
 
-Settings are environment variables:
+Settings are environment variables, set in the shell or in ~/.llmspy/.env
+(the shell wins):
   PROXY_PORT             port for the proxy and the UI (8080)
   LLMSPY_HOST            interface to listen on (127.0.0.1)
   LLMSPY_UPSTREAMS       extra upstreams, as name=url,...

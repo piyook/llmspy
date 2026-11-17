@@ -230,7 +230,16 @@ In bash:
 LLMSPY_UPSTREAMS=openrouter=https://openrouter.ai/api/v1,ollama=http://localhost:11434 npx llmspy
 ```
 
-In a clone of the repo, `npm start` also reads it from a `.env` file at the root (copy `.env.example` to start), and a variable set in the shell wins over `.env`. The `llmspy` command doesn't read `.env`.
+To keep the same settings every time, put them in `~/.llmspy/.env` (the folder that also holds the captured calls) instead, one per line, and `llmspy` reads them whenever it starts:
+
+```bash
+# ~/.llmspy/.env
+LLMSPY_UPSTREAMS=openrouter=https://openrouter.ai/api/v1,ollama=http://localhost:11434
+```
+
+A variable set in the shell wins over the file, so a one-off value doesn't need the file changed. LLMSpy says `Settings read from …` when it starts if it found the file. It doesn't read a `.env` in the folder you start it from, which is usually an app's own, with its API keys.
+
+In a clone of the repo, `npm start` reads a `.env` file at the root of the repo instead (copy `.env.example` to start), and here too the shell wins.
 
 ### Setting upstreams in Docker
 
@@ -282,7 +291,7 @@ mitmproxy's CA can stand in for any web site, so trust it only in the app you ar
 
 ## Configuration
 
-LLMSpy reads these environment variables when it starts, from the shell, or from `.env` when started with `npm start` or Docker from a clone (see [Upstreams](#upstreams) for where `.env` goes).
+LLMSpy reads these environment variables when it starts: from the shell, and from a `.env` file, which is `~/.llmspy/.env` for the `llmspy` command and the one at the root of the repo for `npm start` and Docker (see [Setting upstreams for a local run](#setting-upstreams-for-a-local-run)).
 
 | Variable                | Default     | Meaning                                                      |
 | ----------------------- | ----------- | ------------------------------------------------------------ |
