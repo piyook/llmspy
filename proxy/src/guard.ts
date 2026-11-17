@@ -3,6 +3,11 @@ import type { IncomingHttpHeaders } from 'node:http';
 const LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]']);
 const WILDCARD = new Set(['0.0.0.0', '::']);
 
+/** `host` as it is written in a URL: an IPv6 address in brackets. */
+export function hostForUrl(host: string): string {
+	return host.includes(':') && !host.startsWith('[') ? `[${host}]` : host;
+}
+
 function parseHost(value: string): URL | undefined {
 	try {
 		return new URL(`http://${value}`);
@@ -31,7 +36,7 @@ export function isAllowedUiRequest(
 	const allowed =
 		LOOPBACK.has(host.hostname) ||
 		(!WILDCARD.has(listenHost) &&
-			host.hostname === parseHost(listenHost)?.hostname);
+			host.hostname === parseHost(hostForUrl(listenHost))?.hostname);
 	if (!allowed) return false;
 
 	const { origin } = headers;

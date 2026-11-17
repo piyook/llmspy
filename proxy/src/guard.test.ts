@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { isAllowedUiRequest } from './guard.js';
+import { hostForUrl, isAllowedUiRequest } from './guard.js';
+
+describe('hostForUrl', () => {
+	it.each([
+		['127.0.0.1', '127.0.0.1'],
+		['localhost', 'localhost'],
+		['::1', '[::1]'],
+		['[::1]', '[::1]'],
+	])('writes %s as %s', (host, expected) => {
+		expect(hostForUrl(host)).toBe(expected);
+	});
+});
 
 describe('isAllowedUiRequest', () => {
 	it.each([
@@ -30,6 +41,11 @@ describe('isAllowedUiRequest', () => {
 	it('allows the address LLMSpy listens on', () => {
 		const headers = { host: '192.168.1.20:8080' };
 		expect(isAllowedUiRequest(headers, '192.168.1.20')).toBe(true);
+	});
+
+	it('allows an IPv6 address LLMSpy listens on', () => {
+		const headers = { host: '[fd00::5]:8080' };
+		expect(isAllowedUiRequest(headers, 'fd00::5')).toBe(true);
 	});
 
 	it('does not treat a wildcard listen address as a host name', () => {

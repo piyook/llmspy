@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import * as path from 'node:path';
+import { hostForUrl } from './guard.js';
 import { writePidFile } from './pidfile.js';
 import { ProxyServer } from './proxy.js';
 import { parseRetentionDays, RequestStore } from './store.js';
@@ -49,7 +50,7 @@ async function start(): Promise<void> {
 		const shownHost = ['0.0.0.0', '::'].includes(config.host)
 			? '127.0.0.1'
 			: config.host;
-		const base = `http://${shownHost}:${port}`;
+		const base = `http://${hostForUrl(shownHost)}:${port}`;
 		// Written only once the port is ours, so a second start that fails leaves the first one's record.
 		writePidFile(base);
 		const width = Math.max(
@@ -57,7 +58,7 @@ async function start(): Promise<void> {
 		);
 
 		console.log(
-			`LLMSpy ${config.version} listening on ${config.host}:${port}`,
+			`LLMSpy ${config.version} listening on ${hostForUrl(config.host)}:${port}`,
 		);
 		console.log(`Calls kept ${keptFor} in ${dbFile}`);
 		if (existsSync(path.join(uiDir, 'index.html'))) {
