@@ -54,8 +54,9 @@ jspm_packages/
 # Optional REPL history
 .node_repl_history
 
-# Output of 'npm pack'
+# Output of 'npm pack', and the folder `npm run stage` writes for `npm publish`
 *.tgz
+.npm-package/
 
 # Yarn Integrity file
 .yarn-integrity

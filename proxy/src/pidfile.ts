@@ -2,13 +2,13 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import * as path from 'node:path';
 
-/** Where a running LLMSpy says who it is, for `npm run stop` (scripts/stop.mjs reads the same path). */
-const PID_FILE = path.join(homedir(), '.llmspy', 'llmspy.pid');
+/** Where a running LLMSpy says who it is, for `llmspy stop` (stop.ts). */
+export const PID_FILE = path.join(homedir(), '.llmspy', 'llmspy.pid');
 
 /**
  * Records this process and the URL it answers on, and removes the record when
  * the process exits. A failure to write is only a warning: the proxy works
- * without it, `npm run stop` just can't find it.
+ * without it, `llmspy stop` just can't find it.
  */
 export function writePidFile(url: string, file = PID_FILE): void {
 	try {

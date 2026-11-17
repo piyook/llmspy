@@ -1,6 +1,7 @@
 # LLMSpy
 
 [![GitHub Release](https://img.shields.io/github/v/release/piyook/llmspy)](https://github.com/piyook/llmspy/releases)
+[![npm](https://img.shields.io/npm/v/llmspy?logo=npm)](https://www.npmjs.com/package/llmspy)
 [![standard checks](https://github.com/piyook/llmspy/actions/workflows/checks.yaml/badge.svg?branch=main)](https://github.com/piyook/llmspy/actions/workflows/checks.yaml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Node >= 26](https://img.shields.io/badge/node-%3E%3D26-5FA04E?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
@@ -102,15 +103,23 @@ The traffic in these screenshots is made up, sent to the mock servers described 
 
 ### Start LLMSpy
 
-With Docker, from the root of the repo:
+With **Node.js 26 or later** (`node --version`), from any folder:
+
+```bash
+npx llmspy
+```
+
+This serves the proxy and the UI on `http://127.0.0.1:8080`, in the foreground. Stop it with Ctrl+C, or with `npx llmspy stop` from any terminal. To keep the `llmspy` command to hand, install it once with `npm install -g llmspy`; `llmspy --help` lists its commands and settings. `npx` runs the version it has cached, and `npx llmspy@latest` the newest.
+
+With Docker, from a clone of the repo:
 
 ```bash
 npm run start:docker
 ```
 
-LLMSpy then runs in the background, restarts with Docker, and serves the proxy and the UI on `http://127.0.0.1:8080`. `npm run stop:docker` stops it. Captured calls are kept in the `llmspy-data` volume, so they are there again at the next start.
+LLMSpy then runs in the background, restarts with Docker, and serves the same proxy and UI on `http://127.0.0.1:8080`. `npm run stop:docker` stops it. Captured calls are kept in the `llmspy-data` volume, so they are there again at the next start.
 
-Without Docker, you need **Node.js 26 or later** (`node --version`):
+From source, in a clone of the repo, with Node.js 26 or later:
 
 ```bash
 npm install
@@ -118,7 +127,7 @@ npm run build
 npm start
 ```
 
-This serves the same proxy and UI on `http://127.0.0.1:8080`. Stop it with Ctrl+C, or with `npm run stop` from any terminal. Use one way or the other, not both, as both use port 8080.
+Stop it with Ctrl+C, or with `npm run stop` from any terminal. Use one way at a time, as they all use port 8080.
 
 Either way, the port is open on the loopback interface only, so nothing outside your machine can reach it. Captured traffic (`/api/*`, `/events`, `/ping`) is only served to requests addressed to `localhost`, `127.0.0.1` or `[::1]`, and not to other web sites open in your browser.
 
@@ -156,7 +165,16 @@ Calls without a tag go to `general`. A project name is lowercase letters, digits
 
 ## Commands
 
-Run these from the root of the repo.
+The `llmspy` command, from npm (`npx llmspy`, or `llmspy` once installed with `npm install -g llmspy`), works in any folder:
+
+| Command            | What it does                                                        |
+| ------------------ | ------------------------------------------------------------------- |
+| `llmspy`           | Start LLMSpy in the foreground                                      |
+| `llmspy stop`      | Stop LLMSpy started with `llmspy` or `npm start`, from any terminal |
+| `llmspy --help`    | List the commands and the settings                                  |
+| `llmspy --version` | Print the version                                                   |
+
+The rest run from the root of a clone of the repo:
 
 | Command                         | What it does                                                               |
 | ------------------------------- | -------------------------------------------------------------------------- |
@@ -199,18 +217,20 @@ Examples, with the base URL to give the app:
 
 ### Setting upstreams for a local run
 
-Put the variable in a `.env` file at the root of the repo (copy `.env.example` to start); `npm start` reads it. Or set it in the shell that starts LLMSpy, which wins over `.env`. In PowerShell:
+Set the variable in the shell that starts LLMSpy. In PowerShell:
 
 ```powershell
 $env:LLMSPY_UPSTREAMS = "openrouter=https://openrouter.ai/api/v1,ollama=http://localhost:11434"
-npm start
+npx llmspy
 ```
 
 In bash:
 
 ```bash
-LLMSPY_UPSTREAMS=openrouter=https://openrouter.ai/api/v1,ollama=http://localhost:11434 npm start
+LLMSPY_UPSTREAMS=openrouter=https://openrouter.ai/api/v1,ollama=http://localhost:11434 npx llmspy
 ```
+
+In a clone of the repo, `npm start` also reads it from a `.env` file at the root (copy `.env.example` to start), and a variable set in the shell wins over `.env`. The `llmspy` command doesn't read `.env`.
 
 ### Setting upstreams in Docker
 
@@ -262,7 +282,7 @@ mitmproxy's CA can stand in for any web site, so trust it only in the app you ar
 
 ## Configuration
 
-LLMSpy reads these environment variables when it starts, from the shell or from `.env` (see [Upstreams](#upstreams) for where `.env` goes).
+LLMSpy reads these environment variables when it starts, from the shell, or from `.env` when started with `npm start` or Docker from a clone (see [Upstreams](#upstreams) for where `.env` goes).
 
 | Variable                | Default     | Meaning                                                      |
 | ----------------------- | ----------- | ------------------------------------------------------------ |
@@ -333,7 +353,7 @@ Anything else gets random lorem ipsum. Both mocks stream when the request sets `
 - **404 from LLMSpy.** The path prefix doesn't match an upstream; the response lists the known ones.
 - **The app reports a connection error and nothing appears in LLMSpy.** The app can't reach LLMSpy. Check that LLMSpy is running; if the app runs in a container, `localhost` is that container (see [Setting upstreams in Docker](#setting-upstreams-in-docker)).
 - **502 from LLMSpy.** The upstream could not be reached; the request in the UI shows the error. With Docker, an upstream on your machine or in another container is not at `localhost` (see [Setting upstreams in Docker](#setting-upstreams-in-docker)).
-- **LLMSpy won't start: `EADDRINUSE`, or Docker's "port is already allocated".** Something else has port 8080, often LLMSpy started the other way. Stop it with `npm run stop` or `npm run stop:docker`.
+- **LLMSpy won't start: `EADDRINUSE`, or Docker's "port is already allocated".** Something else has port 8080, often LLMSpy started another way. Stop it with `llmspy stop` (or `npm run stop`), or `npm run stop:docker`.
 
 ## License
 
