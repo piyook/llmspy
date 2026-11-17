@@ -4,6 +4,7 @@ import * as zlib from 'node:zlib';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ProxyServer } from './proxy.js';
 import { RequestStore } from './store.js';
+import type { ProxyConfig } from './types.js';
 
 const cleanups: Array<() => Promise<void>> = [];
 
@@ -31,7 +32,10 @@ async function startUpstream(handler: http.RequestListener): Promise<string> {
 	return url;
 }
 
-async function startProxy(upstreamUrl: string) {
+async function startProxy(
+	upstreamUrl: string,
+	extra: Partial<ProxyConfig> = {},
+) {
 	const store = new RequestStore();
 	const proxy = new ProxyServer(
 		{
@@ -39,6 +43,7 @@ async function startProxy(upstreamUrl: string) {
 			host: '127.0.0.1',
 			upstreams: new Map([['fake', new URL(upstreamUrl)]]),
 			version: '9.9.9-test',
+			...extra,
 		},
 		store,
 	);
@@ -322,6 +327,34 @@ describe('ProxyServer', () => {
 		expect(body.port).toBe(Number(new URL(base).port));
 		expect(body.pid).toBe(process.pid);
 		expect(body.version).toBe('9.9.9-test');
+	});
+
+	it('serves llms.txt as plain text, to another site too', async () => {
+		const { base } = await startProxy('http://127.0.0.1:1', {
+			llmsTxt: '# LLMSpy ✓\n',
+		});
+
+		const res = await request(`${base}/llms.txt`, {
+			headers: { origin: 'https://example.com' },
+		});
+		expect(res.statusCode).toBe(200);
+		expect(res.headers['content-type']).toBe('text/plain; charset=utf-8');
+		expect(res.headers['content-length']).toBe(
+			String(Buffer.byteLength('# LLMSpy ✓\n')),
+		);
+		expect((await readAll(res)).toString()).toBe('# LLMSpy ✓\n');
+
+		const head = await request(`${base}/llms.txt`, { method: 'HEAD' });
+		expect(head.statusCode).toBe(200);
+		expect((await readAll(head)).length).toBe(0);
+	});
+
+	it('answers 404 for llms.txt when it has none', async () => {
+		const { base } = await startProxy('http://127.0.0.1:1');
+
+		const res = await request(`${base}/llms.txt`);
+		await readAll(res);
+		expect(res.statusCode).toBe(404);
 	});
 
 	it('lists the upstreams at /api/upstreams', async () => {

@@ -1,6 +1,6 @@
 # LLMSpy
 
-> A local reverse proxy that records the LLM API calls an app makes and shows each one in a web UI: the prompt, the system message, the tools, the reply and the token counts. An app is pointed at it by its base URL setting (`ANTHROPIC_BASE_URL`, `OPENAI_BASE_URL`); requests are forwarded unchanged and a copy is kept. This file is the reference for AI agents and scripts; it ships in the repository and in the npm package `llmspy`, and `README.md` is the human guide.
+> A local reverse proxy that records the LLM API calls an app makes and shows each one in a web UI: the prompt, the system message, the tools, the reply and the token counts. An app is pointed at it by its base URL setting (`ANTHROPIC_BASE_URL`, `OPENAI_BASE_URL`); requests are forwarded unchanged and a copy is kept. This file is the reference for AI agents and scripts; it ships in the repository and in the npm package `llmspy`, a running LLMSpy serves it at `/llms.txt` (`http://127.0.0.1:8080/llms.txt` by default) for the version that is running, and `README.md` is the human guide.
 
 ## What it does and does not do
 

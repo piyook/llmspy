@@ -23,6 +23,8 @@ ENV NODE_ENV=production \
 COPY --from=build /app/proxy/package.json proxy/
 COPY --from=build /app/proxy/dist proxy/dist
 COPY --from=build /app/ui/dist ui/dist
+# Served at /llms.txt.
+COPY llms.txt ./
 
 USER node
 # Made here, as node, so the compose volume mounted on it is node's to write.

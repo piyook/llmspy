@@ -150,7 +150,7 @@ claude
 
 Each request then appears in the UI at `http://127.0.0.1:8080`. The app keeps its own API key, which LLMSpy passes on to the provider.
 
-For coding agents and scripts, [llms.txt](llms.txt) is a compact reference: how to run LLMSpy, point an app at it, read the captured traffic as JSON or one call as Markdown, and wait for a call that is still running.
+For coding agents and scripts, [llms.txt](llms.txt) is a compact reference: how to run LLMSpy, point an app at it, read the captured traffic as JSON or one call as Markdown, and wait for a call that is still running. A running LLMSpy serves it too, for its own version, at `http://127.0.0.1:8080/llms.txt`.
 
 ### Keep apps apart with projects
 
