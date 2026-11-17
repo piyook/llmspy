@@ -1,26 +1,19 @@
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import * as path from 'node:path';
+import { hostForUrl } from './guard.js';
 import { writePidFile } from './pidfile.js';
 import { ProxyServer } from './proxy.js';
 import { parseRetentionDays, RequestStore } from './store.js';
 import type { ProxyConfig } from './types.js';
 import { parseUpstreams } from './upstreams.js';
+import { readVersion } from './version.js';
 
-// Built layout: proxy/dist/index.js next to ui/dist/ (also in the image).
+// Built layout: proxy/dist/index.js next to ui/dist/ (also in the image and
+// the npm package).
 const uiDir = path.resolve(import.meta.dirname, '../../ui/dist');
-// proxy/package.json, from src/ (tsx) and dist/ alike; the image copies it too.
-const packageFile = path.resolve(import.meta.dirname, '../package.json');
 const dbFile = path.join(homedir(), '.llmspy', 'llmspy.db');
 const HOUR_MS = 60 * 60 * 1000;
-
-function readVersion(): string {
-	const { version } = JSON.parse(readFileSync(packageFile, 'utf8'));
-	if (typeof version !== 'string') {
-		throw new Error(`No version in ${packageFile}`);
-	}
-	return version;
-}
 
 let config: ProxyConfig;
 let store: RequestStore;
@@ -57,7 +50,7 @@ async function start(): Promise<void> {
 		const shownHost = ['0.0.0.0', '::'].includes(config.host)
 			? '127.0.0.1'
 			: config.host;
-		const base = `http://${shownHost}:${port}`;
+		const base = `http://${hostForUrl(shownHost)}:${port}`;
 		// Written only once the port is ours, so a second start that fails leaves the first one's record.
 		writePidFile(base);
 		const width = Math.max(
@@ -65,7 +58,7 @@ async function start(): Promise<void> {
 		);
 
 		console.log(
-			`LLMSpy ${config.version} listening on ${config.host}:${port}`,
+			`LLMSpy ${config.version} listening on ${hostForUrl(config.host)}:${port}`,
 		);
 		console.log(`Calls kept ${keptFor} in ${dbFile}`);
 		if (existsSync(path.join(uiDir, 'index.html'))) {

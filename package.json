@@ -1,8 +1,27 @@
 {
 	"name": "llmspy",
-	"version": "0.2.2",
+	"version": "0.3.0",
 	"description": "Local developer tool for intercepting and displaying LLM API traffic",
 	"license": "MIT",
+	"author": "piyook",
+	"homepage": "https://github.com/piyook/llmspy#readme",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/piyook/llmspy.git"
+	},
+	"bugs": {
+		"url": "https://github.com/piyook/llmspy/issues"
+	},
+	"keywords": [
+		"llm",
+		"proxy",
+		"anthropic",
+		"openai",
+		"claude",
+		"debugging",
+		"traffic",
+		"devtools"
+	],
 	"private": true,
 	"workspaces": [
 		"proxy",
@@ -13,8 +32,10 @@
 		"dev:proxy": "npm run dev -w proxy",
 		"dev:ui": "npm run dev -w ui",
 		"build": "npm run build --workspaces",
+		"stage": "npm run build && node scripts/stage-package.mjs",
+		"publish:npm": "npm run stage && npm publish .npm-package",
 		"start": "npm start -w proxy",
-		"stop": "node scripts/stop.mjs",
+		"stop": "tsx proxy/src/cli.ts stop",
 		"start:docker": "docker compose up -d --build",
 		"stop:docker": "docker compose down",
 		"mock": "cd mock && concurrently -n anthropic,openai -c magenta,cyan \"llmock start --model=claude --foreground\" \"llmock start --model=chatgpt --port=8002 --foreground\"",

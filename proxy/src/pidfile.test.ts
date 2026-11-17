@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { removePidFile, writePidFile } from './pidfile.js';
+import { readPidFile, removePidFile, writePidFile } from './pidfile.js';
 
 describe('pid file', () => {
 	const dir = mkdtempSync(path.join(tmpdir(), 'llmspy-pid-'));
@@ -30,6 +30,33 @@ describe('pid file', () => {
 		writeFileSync(file, other);
 		removePidFile(file);
 		expect(readFileSync(file, 'utf8')).toBe(other);
+	});
+
+	it('reads the record back', () => {
+		writePidFile('http://127.0.0.1:8080', file);
+		expect(readPidFile(file)).toEqual({
+			pid: process.pid,
+			url: 'http://127.0.0.1:8080',
+		});
+	});
+
+	it('says when there is no record', () => {
+		expect(readPidFile(path.join(dir, 'missing.pid'))).toBe('none');
+	});
+
+	it.each(['null', 'not json', '{"pid":1}', '{"pid":"1","url":"x"}'])(
+		'says when %s is not a record',
+		(text) => {
+			writePidFile('x', file);
+			writeFileSync(file, text);
+			expect(readPidFile(file)).toBe('invalid');
+		},
+	);
+
+	it('throws other read errors', () => {
+		// A folder can not be read as a file (EISDIR).
+		writePidFile('x', file);
+		expect(() => readPidFile(path.dirname(file))).toThrow();
 	});
 
 	it('does not throw when there is no file', () => {
