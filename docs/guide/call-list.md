@@ -38,7 +38,7 @@ Export saves the calls in the list as you see it (the project you are viewing, n
 
 ## Clearing calls
 
-Clear All empties the project you are viewing, from the file on disk too, and the delete button on a call removes that one. A call still running when you press Clear All shows up again when it ends.
+Clear All empties the project you are viewing, from the file on disk too, after you confirm it; the delete button on a call removes that one. A call still running when you press Clear All shows up again when it ends.
 
 ## Narrow windows
 
