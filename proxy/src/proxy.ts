@@ -1,10 +1,17 @@
 import * as http from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { pipeline, Readable } from 'node:stream';
 import { forwardAndCapture } from './capture.js';
 import { toMarkdown } from './conversation.js';
+import { captureFile, captureFileName } from './export.js';
 import { isAllowedUiRequest } from './guard.js';
 import { exchangeParser } from './parsers/index.js';
-import { parseListRequest, parseStatsRequest, parseWait } from './query.js';
+import {
+	parseExportRequest,
+	parseListRequest,
+	parseStatsRequest,
+	parseWait,
+} from './query.js';
 import { serveStatic } from './static.js';
 import { toStats } from './stats.js';
 import type { RequestStore } from './store.js';
@@ -80,19 +87,7 @@ export class ProxyServer {
 			this.handleSSE(req, res);
 			return;
 		}
-		if (path === '/api/requests') {
-			this.handleGetRequests(res, url);
-			return;
-		}
-		if (path === '/api/stats') {
-			this.handleGetStats(res, url);
-			return;
-		}
-		if (path === '/api/upstreams') {
-			res.writeHead(200, { 'Content-Type': 'application/json' });
-			res.end(JSON.stringify(listUpstreams(this.config.upstreams)));
-			return;
-		}
+		if (this.handleReadRoute(res, url, path)) return;
 		if (path === '/api/clear' && req.method === 'POST') {
 			this.handleClearRequests(res, url);
 			return;
@@ -120,6 +115,31 @@ export class ProxyServer {
 			},
 			onDone: parseAndPublish,
 		});
+	}
+
+	/** The `/api/*` routes that read many calls or the settings; false when `path` is none of them. */
+	private handleReadRoute(
+		res: http.ServerResponse,
+		url: string,
+		path: string,
+	): boolean {
+		switch (path) {
+			case '/api/requests':
+				this.handleGetRequests(res, url);
+				return true;
+			case '/api/stats':
+				this.handleGetStats(res, url);
+				return true;
+			case '/api/export':
+				this.handleExport(res, url);
+				return true;
+			case '/api/upstreams':
+				res.writeHead(200, { 'Content-Type': 'application/json' });
+				res.end(JSON.stringify(listUpstreams(this.config.upstreams)));
+				return true;
+			default:
+				return false;
+		}
 	}
 
 	/** The routes on one call, `/api/requests/<id>...`; false when `path` is none of them. */
@@ -293,6 +313,49 @@ export class ProxyServer {
 		}
 		res.writeHead(200, { 'Content-Type': 'application/json' });
 		res.end(JSON.stringify(toStats(this.store.summaries(asked.query))));
+	}
+
+	/**
+	 * `GET /api/export`: the finished calls the filters of `GET /api/requests`
+	 * match, oldest first, as an `llm-capture` file to save. Each call is read
+	 * from the store only when the response is ready for it.
+	 */
+	private handleExport(res: http.ServerResponse, url: string): void {
+		const asked = parseExportRequest(
+			new URLSearchParams(url.split('?')[1]),
+		);
+		if ('error' in asked) {
+			this.badRequest(res, asked.error);
+			return;
+		}
+		const now = new Date();
+		const ids = this.store
+			.summaries(asked.query)
+			.map(({ id }) => id)
+			.reverse();
+		const store = this.store;
+		function* calls(): Generator<CapturedRequest> {
+			for (const id of ids) {
+				const captured = store.get(id);
+				if (captured) yield captured;
+			}
+		}
+		res.writeHead(200, {
+			'Content-Type': 'application/json; charset=utf-8',
+			'Content-Disposition': `attachment; filename="${captureFileName(asked.query.project, now)}"`,
+		});
+		// pipeline stops reading the store if the client hangs up part-way.
+		pipeline(
+			Readable.from(
+				captureFile(calls(), {
+					createdAt: now,
+					createdBy: `llmspy ${this.config.version}`,
+					upstreams: this.config.upstreams,
+				}),
+			),
+			res,
+			() => {},
+		);
 	}
 
 	/** `GET /api/requests/<id>`: the full record. */

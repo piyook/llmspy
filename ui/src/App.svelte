@@ -3,6 +3,7 @@ import { onMount } from 'svelte';
 import { SvelteMap } from 'svelte/reactivity';
 // The proxy's own counts, so the cards and `GET /api/stats` agree.
 import { toCounts } from '../../proxy/src/stats.js';
+import ConfirmDialog from './ConfirmDialog.svelte';
 import DayHeader from './DayHeader.svelte';
 import Detail from './Detail.svelte';
 import EmptyList from './EmptyList.svelte';
@@ -15,6 +16,7 @@ import {
 	groupByDay,
 	withinLast,
 } from './lib/days.js';
+import { exportUrl } from './lib/export.js';
 import {
 	countByProject,
 	countSince,
@@ -238,6 +240,20 @@ const shownCalls = (group: DayGroup) =>
 // Every call in the list, in closed days too, for the cards above it.
 const listed = $derived(groups.flatMap(shownCalls));
 const cards = $derived(statsCards(toCounts(listed)));
+// Export saves the calls in the list; with nothing listed there is nothing to save.
+const exportHref = $derived(
+	listed.length === 0
+		? undefined
+		: exportUrl({
+				project,
+				search,
+				failedOnly,
+				since:
+					narrowing && recent !== undefined
+						? recentNow - recent * 60_000
+						: undefined,
+			}),
+);
 // The Failed chip counts what pressing it would list, so the chip, the list
 // and the Failed card agree under a search or a minutes chip.
 const failedCount = $derived(
@@ -319,8 +335,12 @@ function clearProject(name?: string) {
 	}
 }
 
-/** Clear All: the project being viewed only. */
+// Clear All asks first: it deletes from disk too, and is easy to click by accident.
+let confirmingClear = $state(false);
+
+/** Clear All, once confirmed: the project being viewed only. */
 async function clearRequests() {
+	confirmingClear = false;
 	const name = project;
 	try {
 		await fetch(`/api/clear?project=${encodeURIComponent(name)}`, {
@@ -335,7 +355,26 @@ async function clearRequests() {
 
 <svelte:window {onkeydown} />
 
-<Toolbar bind:search {connected} {address} {version} onclear={clearRequests} />
+<Toolbar
+  bind:search
+  {connected}
+  {address}
+  {version}
+  {exportHref}
+  onclear={() => (confirmingClear = true)}
+/>
+<ConfirmDialog
+  open={confirmingClear}
+  title={`Clear all calls in ${project}?`}
+  confirmLabel="Clear"
+  onconfirm={clearRequests}
+  oncancel={() => (confirmingClear = false)}
+>
+  <p>
+    This deletes them from LLMSpy's file on disk too, and can't be undone.
+    Other projects are not touched.
+  </p>
+</ConfirmDialog>
 <ProjectTabs
   {projects}
   current={project}

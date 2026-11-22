@@ -32,6 +32,14 @@ Cards above the panes sum up the calls in the list as it is narrowed (by project
 
 ![The cards above the panes for the general project: 54 calls, 18 failed (33%, in red), 990 tokens in and 996 out, latency p50 16ms and p95 801ms](/screenshots/cards.png)
 
+## Exporting calls
+
+Export saves the calls in the list as you see it (the project you are viewing, narrowed by the search, the Failed chip and a minutes chip) as an [`llm-capture`](/reference/capture-format) file, for other tools or to keep. Calls still running are left out, and so are API keys. The file still holds whole prompts and replies, so review it before you share it.
+
 ## Clearing calls
 
-Clear All empties the project you are viewing, from the file on disk too, and the delete button on a call removes that one. A call still running when you press Clear All shows up again when it ends.
+Clear All empties the project you are viewing, from the file on disk too, after you confirm it; the delete button on a call removes that one. A call still running when you press Clear All shows up again when it ends.
+
+## Narrow windows
+
+When the window is 1100px wide or less, the buttons beside the search (Base URLs, Export, Clear All, Help and Settings) move into a menu, opened by the button with three lines at the right of the header.

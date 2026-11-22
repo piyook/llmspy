@@ -147,40 +147,40 @@ body {
 	margin-right: -0.25rem;
 }
 
-/* Proxy connection: an ear in the title colour with moving sound waves, or a slashed red one. */
+/*
+ * Proxy connection, shown by the logo's magnifying glass (StatusIcon.svelte):
+ * green with its lens pulsing, or red, empty and struck through.
+ * The logo's square is dark in both themes, so these colours are fixed too.
+ */
 .status-icon {
-	display: inline-flex;
-	color: var(--danger);
+	color: #fa5252;
 }
 
 .status-icon.connected {
-	color: var(--accent);
+	color: #40c057;
 }
 
-.wave {
-	animation: listen 1.5s ease-in-out infinite;
+.status-icon svg {
+	display: block;
 }
 
-.wave-mid {
-	animation-delay: 0.25s;
-}
-
-.wave-near {
-	animation-delay: 0.5s;
+/* While listening the lens slowly fills with green and empties again. */
+.connected .lens {
+	animation: listen 3s ease-in-out infinite;
 }
 
 @keyframes listen {
 	0%,
 	100% {
-		opacity: 0.15;
+		fill-opacity: 0;
 	}
-	30% {
-		opacity: 1;
+	50% {
+		fill-opacity: 1;
 	}
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.wave {
+	.connected .lens {
 		animation: none;
 	}
 }
@@ -198,6 +198,123 @@ body {
 	display: flex;
 	gap: 1rem;
 	align-items: center;
+}
+
+/*
+ * The controls beside the search (Toolbar.svelte). On a wide window they sit
+ * in the header, Base URLs first as before; at 1100px and less they move to
+ * a drawer from the right, opened by the menu button.
+ */
+.icon-btn.menu-btn,
+.icon-btn.menu-close,
+.menu-label {
+	display: none;
+}
+
+@media (min-width: 1101px) {
+	.menu {
+		display: contents;
+	}
+
+	.menu-upstreams {
+		order: -1;
+	}
+}
+
+@media (max-width: 1100px) {
+	.icon-btn.menu-btn {
+		display: inline-flex;
+	}
+
+	.menu {
+		position: fixed;
+		top: 0;
+		right: 0;
+		z-index: 20;
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
+		gap: 0.75rem;
+		box-sizing: border-box;
+		width: min(28rem, 90vw);
+		height: 100vh;
+		overflow-y: auto;
+		padding: 1.5rem 1rem;
+		border-left: 1px solid var(--accent);
+		background: var(--surface);
+		box-shadow: -8px 0 24px var(--shadow);
+		translate: 100% 0;
+		/* Hidden when closed, so the keyboard skips it; after the slide out. */
+		visibility: hidden;
+		transition:
+			translate 0.2s ease,
+			visibility 0s linear 0.2s;
+	}
+
+	.menu.menu-open {
+		translate: 0 0;
+		visibility: visible;
+		transition: translate 0.2s ease;
+	}
+
+	/* Each control fills the drawer's width, its label to the left. */
+	.menu .header-btn,
+	.menu .clear-btn,
+	.menu .icon-btn {
+		width: 100%;
+		box-sizing: border-box;
+		text-align: left;
+	}
+
+	.menu .icon-btn {
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.25rem 0.5rem;
+		font: inherit;
+		font-size: 0.9rem;
+		color: var(--text-strong);
+	}
+
+	.menu .icon-btn svg {
+		color: var(--accent);
+	}
+
+	/* The cross at the top, since the drawer covers the menu button. */
+	.menu .icon-btn.menu-close {
+		display: inline-flex;
+		align-self: flex-end;
+		width: auto;
+		padding: 0.25rem;
+	}
+
+	/* Clear All has no border; a clear one makes it as tall as the others. */
+	.menu .clear-btn {
+		border: 1px solid transparent;
+	}
+
+	.menu-label {
+		display: inline;
+	}
+
+	/* A popover opens in place in the drawer, under its button. */
+	.menu .popover {
+		position: static;
+		width: auto;
+		max-width: none;
+		max-height: none;
+		margin-top: 0.5rem;
+		translate: none;
+		transform: none;
+		box-shadow: none;
+		overflow-x: auto;
+	}
+}
+
+@media (max-width: 1100px) and (prefers-reduced-motion: reduce) {
+	.menu,
+	.menu.menu-open {
+		transition: none;
+	}
 }
 
 .search {
@@ -242,6 +359,53 @@ body {
 .header-btn:hover,
 .header-btn[aria-expanded="true"] {
 	background: var(--surface-selected);
+}
+
+/* Export is a download link styled as a header button. */
+a.header-btn {
+	text-decoration: none;
+}
+
+.header-btn:disabled {
+	opacity: 0.5;
+	cursor: default;
+	background: transparent;
+}
+
+/* The confirmation before Clear All (ConfirmDialog.svelte), a modal <dialog>. */
+.confirm-dialog {
+	max-width: min(28rem, 100vw - 2rem);
+	padding: 0;
+	border: 1px solid var(--accent);
+	border-radius: 8px;
+	background: var(--surface);
+	color: var(--text);
+	box-shadow: 0 8px 24px var(--shadow);
+}
+
+.confirm-dialog::backdrop {
+	background: rgba(0, 0, 0, 0.4);
+}
+
+.confirm-body {
+	padding: 1.25rem 1.5rem;
+}
+
+.confirm-body h2 {
+	margin: 0 0 0.5rem;
+	font-size: 1.1rem;
+	color: var(--text-strong);
+}
+
+.confirm-body p {
+	margin: 0 0 1.25rem;
+	font-size: 0.9rem;
+}
+
+.confirm-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 0.75rem;
 }
 
 /* A header button that is only an icon, such as the settings cog. */

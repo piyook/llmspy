@@ -54,17 +54,32 @@ export function parseListRequest(params: URLSearchParams): ListRequest {
 	};
 }
 
-/** What `GET /api/stats` was asked for, or why it can not be answered. */
-export type StatsRequest = { query: CallQuery } | { error: string };
+/** What `GET /api/stats` or `GET /api/export` was asked for, or why it can not be answered. */
+export type MatchesRequest = { query: CallQuery } | { error: string };
 
 /**
  * Reads the parameters of `GET /api/stats`: the filters of `GET /api/requests`.
  * `limit` and `full` are errors, since the counts are over every match.
  */
-export function parseStatsRequest(params: URLSearchParams): StatsRequest {
+export function parseStatsRequest(params: URLSearchParams): MatchesRequest {
+	return parseEveryMatch(params, '/api/stats');
+}
+
+/**
+ * Reads the parameters of `GET /api/export`: the filters of `GET /api/requests`.
+ * `limit` and `full` are errors, since every match is exported in full.
+ */
+export function parseExportRequest(params: URLSearchParams): MatchesRequest {
+	return parseEveryMatch(params, '/api/export');
+}
+
+function parseEveryMatch(
+	params: URLSearchParams,
+	route: string,
+): MatchesRequest {
 	for (const name of ['limit', 'full']) {
 		if (params.has(name)) {
-			return { error: `${name} does not apply to /api/stats.` };
+			return { error: `${name} does not apply to ${route}.` };
 		}
 	}
 	const asked = parseListRequest(params);

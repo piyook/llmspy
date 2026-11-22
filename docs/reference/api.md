@@ -11,6 +11,7 @@ The UI, agents and scripts read the captured calls from a small API on the same 
 | `GET /ping`                            | `{"status","version","port","pid",…}`: LLMSpy is running               |
 | `GET /api/requests`                    | The summary of every call, newest first (filters below)                 |
 | `GET /api/stats`                       | Calls, failures, tokens and latency over the same filters, per model and project |
+| `GET /api/export`                      | The finished calls the filters match, oldest first, as an [`llm-capture`](/reference/capture-format) file to save |
 | `GET /api/requests/<id>`               | One call's full record                                                  |
 | `GET /api/requests/<id>/conversation`  | One call as Markdown, as you would read it                              |
 | `DELETE /api/requests/<id>`            | Delete one call                                                         |
@@ -21,7 +22,7 @@ The UI, agents and scripts read the captured calls from a small API on the same 
 
 ## Filters
 
-`GET /api/requests` and `GET /api/stats` take these, and keep the calls that match all of them:
+`GET /api/requests`, `GET /api/stats` and `GET /api/export` take these, and keep the calls that match all of them:
 
 | Parameter          | Keeps                                                                    |
 | ------------------ | ------------------------------------------------------------------------ |
