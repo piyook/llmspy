@@ -142,7 +142,17 @@ function onMenuFocusOut(event: FocusEvent) {
       {:else}
         <button type="button" class="header-btn" disabled title="No calls to export">Export</button>
       {/if}
-      <button type="button" class="clear-btn" onclick={onclear}>Clear All</button>
+      <button
+        type="button"
+        class="clear-btn"
+        onclick={() => {
+          // The confirmation takes over; the drawer would only sit behind it.
+          closeMenu(false);
+          onclear();
+        }}
+      >
+        Clear All
+      </button>
       <HelpPopover address={connected ? address : undefined} />
       <SettingsPopover {version} />
     </div>
