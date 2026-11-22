@@ -3,6 +3,7 @@ import { onMount } from 'svelte';
 import { SvelteMap } from 'svelte/reactivity';
 // The proxy's own counts, so the cards and `GET /api/stats` agree.
 import { toCounts } from '../../proxy/src/stats.js';
+import ConfirmDialog from './ConfirmDialog.svelte';
 import DayHeader from './DayHeader.svelte';
 import Detail from './Detail.svelte';
 import EmptyList from './EmptyList.svelte';
@@ -334,8 +335,12 @@ function clearProject(name?: string) {
 	}
 }
 
-/** Clear All: the project being viewed only. */
+// Clear All asks first: it deletes from disk too, and is easy to click by accident.
+let confirmingClear = $state(false);
+
+/** Clear All, once confirmed: the project being viewed only. */
 async function clearRequests() {
+	confirmingClear = false;
 	const name = project;
 	try {
 		await fetch(`/api/clear?project=${encodeURIComponent(name)}`, {
@@ -356,8 +361,20 @@ async function clearRequests() {
   {address}
   {version}
   {exportHref}
-  onclear={clearRequests}
+  onclear={() => (confirmingClear = true)}
 />
+<ConfirmDialog
+  open={confirmingClear}
+  title={`Clear all calls in ${project}?`}
+  confirmLabel="Clear"
+  onconfirm={clearRequests}
+  oncancel={() => (confirmingClear = false)}
+>
+  <p>
+    This deletes them from LLMSpy's file on disk too, and can't be undone.
+    Other projects are not touched.
+  </p>
+</ConfirmDialog>
 <ProjectTabs
   {projects}
   current={project}
