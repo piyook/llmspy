@@ -244,6 +244,17 @@ body {
 	background: var(--surface-selected);
 }
 
+/* Export is a download link styled as a header button. */
+a.header-btn {
+	text-decoration: none;
+}
+
+.header-btn:disabled {
+	opacity: 0.5;
+	cursor: default;
+	background: transparent;
+}
+
 /* A header button that is only an icon, such as the settings cog. */
 .icon-btn {
 	display: inline-flex;

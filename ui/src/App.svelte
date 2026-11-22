@@ -15,6 +15,7 @@ import {
 	groupByDay,
 	withinLast,
 } from './lib/days.js';
+import { exportUrl } from './lib/export.js';
 import {
 	countByProject,
 	countSince,
@@ -238,6 +239,20 @@ const shownCalls = (group: DayGroup) =>
 // Every call in the list, in closed days too, for the cards above it.
 const listed = $derived(groups.flatMap(shownCalls));
 const cards = $derived(statsCards(toCounts(listed)));
+// Export saves the calls in the list; with nothing listed there is nothing to save.
+const exportHref = $derived(
+	listed.length === 0
+		? undefined
+		: exportUrl({
+				project,
+				search,
+				failedOnly,
+				since:
+					narrowing && recent !== undefined
+						? recentNow - recent * 60_000
+						: undefined,
+			}),
+);
 // The Failed chip counts what pressing it would list, so the chip, the list
 // and the Failed card agree under a search or a minutes chip.
 const failedCount = $derived(
@@ -335,7 +350,14 @@ async function clearRequests() {
 
 <svelte:window {onkeydown} />
 
-<Toolbar bind:search {connected} {address} {version} onclear={clearRequests} />
+<Toolbar
+  bind:search
+  {connected}
+  {address}
+  {version}
+  {exportHref}
+  onclear={clearRequests}
+/>
 <ProjectTabs
   {projects}
   current={project}

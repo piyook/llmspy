@@ -9,14 +9,20 @@ let {
 	connected,
 	address,
 	version,
+	exportHref,
 	onclear,
 }: {
 	search: string;
 	connected: boolean;
 	address?: string;
 	version?: string;
+	/** Where Export downloads the listed calls from; undefined when none are listed. */
+	exportHref?: string;
 	onclear: () => void;
 } = $props();
+
+const EXPORT_TITLE =
+	'Save the calls in this list as an llm-capture file (calls still running are left out)';
 </script>
 
 <div class="header">
@@ -34,6 +40,11 @@ let {
       class="search"
       bind:value={search}
     />
+    {#if exportHref}
+      <a class="header-btn" href={exportHref} download title={EXPORT_TITLE}>Export</a>
+    {:else}
+      <button type="button" class="header-btn" disabled title="No calls to export">Export</button>
+    {/if}
     <button type="button" class="clear-btn" onclick={onclear}>Clear All</button>
     <HelpPopover address={connected ? address : undefined} />
     <SettingsPopover {version} />
