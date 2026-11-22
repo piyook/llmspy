@@ -57,10 +57,11 @@ function onWindowKeyDown(event: KeyboardEvent) {
 	closeMenu(true);
 }
 
-// Tabbing out of the drawer closes it, like a click outside.
+// Tabbing out of the drawer closes it, like a click outside. When it is
+// closed (or on a wide window, where it is not a drawer) this does nothing.
 function onMenuFocusOut(event: FocusEvent) {
 	const next = event.relatedTarget as Node | null;
-	if (menuOpen && next && !menu.contains(next) && next !== menuButton) {
+	if (next && !menu.contains(next) && next !== menuButton) {
 		closeMenu(false);
 	}
 }

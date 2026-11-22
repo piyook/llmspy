@@ -100,6 +100,10 @@ export default defineConfig({
 					{ text: 'CLI', link: '/reference/cli' },
 					{ text: 'Configuration', link: '/reference/configuration' },
 					{ text: 'HTTP API', link: '/reference/api' },
+					{
+						text: 'Capture format',
+						link: '/reference/capture-format',
+					},
 					{ text: 'How it works', link: '/reference/how-it-works' },
 				],
 			},
