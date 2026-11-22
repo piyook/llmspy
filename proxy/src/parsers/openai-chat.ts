@@ -111,6 +111,7 @@ function toTool(tool: unknown): LlmTool {
 	return {
 		name: asString(definition.name) ?? '',
 		description: asString(definition.description),
+		inputSchema: definition.parameters,
 	};
 }
 

@@ -22,6 +22,8 @@ export interface LlmMessage {
 export interface LlmTool {
 	name: string;
 	description?: string;
+	/** The JSON Schema of the tool's input, as sent. Built-in tools have none. */
+	inputSchema?: unknown;
 }
 
 /**
