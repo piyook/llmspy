@@ -39,3 +39,7 @@ Export saves the calls in the list as you see it (the project you are viewing, n
 ## Clearing calls
 
 Clear All empties the project you are viewing, from the file on disk too, and the delete button on a call removes that one. A call still running when you press Clear All shows up again when it ends.
+
+## Narrow windows
+
+When the window is 1100px wide or less, the buttons beside the search (Base URLs, Export, Clear All, Help and Settings) move into a menu, opened by the button with three lines at the right of the header.

@@ -28,6 +28,7 @@ const base = $derived(`${location.protocol}//${address ?? DEFAULT_ADDRESS}`);
       <path d="M9.25 9.5a2.75 2.75 0 1 1 3.9 2.5c-.7.33-1.15 1-1.15 1.8v.45" />
       <path d="M12 17.25h.01" stroke-width="2.5" />
     </svg>
+    <span class="menu-label">Help</span>
   {/snippet}
 
   <div class="help">
