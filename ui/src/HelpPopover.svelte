@@ -80,6 +80,10 @@ const base = $derived(`${location.protocol}//${address ?? DEFAULT_ADDRESS}`);
         at the reference:
         <code class="help-code">{base}/llms.txt</code>
       </li>
+      <li>
+        Export saves the calls in the list as an llm-capture file, for other
+        tools or to keep. API keys are left out; prompts and replies are not.
+      </li>
       <li>API keys are masked. Prompts and replies are shown in full.</li>
       <li>
         Calls are kept in a file on your machine, so they survive a restart:
