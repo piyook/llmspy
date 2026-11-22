@@ -24,6 +24,7 @@ let theme = $state<Theme>(loadTheme());
         d="M19 12h3M12 19v3M5 12H2M12 5V2M16.95 16.95l2.12 2.12M7.05 16.95l-2.12 2.12M7.05 7.05 4.93 4.93M16.95 7.05l2.12-2.12"
       />
     </svg>
+    <span class="menu-label">Settings</span>
   {/snippet}
 
   <fieldset class="setting">
