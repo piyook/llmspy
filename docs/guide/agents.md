@@ -42,6 +42,12 @@ curl -s "http://127.0.0.1:8080/api/stats?since=$since"
 
 The first gives the calls in full (newest first), the second their count, failures, tokens and p50/p95 latency, in all and per model. Add `&project=<name>` when other apps send traffic at the same time.
 
+Save the calls of a task as a file other tools can read, in the [capture format](/reference/capture-format):
+
+```bash
+curl -s "http://127.0.0.1:8080/api/export?since=$since" -o task.capture.json
+```
+
 Wait for a running call to end (up to 120 seconds here):
 
 ```bash
