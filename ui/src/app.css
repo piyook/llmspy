@@ -141,6 +141,12 @@ body {
 	gap: 0.75rem;
 }
 
+/* The logo before the heading; the heading names it, so its alt is empty. */
+.title .logo {
+	display: block;
+	margin-right: -0.25rem;
+}
+
 /* Proxy connection: an ear in the title colour with moving sound waves, or a slashed red one. */
 .status-icon {
 	display: inline-flex;
