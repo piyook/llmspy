@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { parseListRequest, parseStatsRequest, parseWait } from './query.js';
+import {
+	parseExportRequest,
+	parseListRequest,
+	parseStatsRequest,
+	parseWait,
+} from './query.js';
 
 const parse = (query: string) => parseListRequest(new URLSearchParams(query));
 
@@ -103,6 +108,32 @@ describe('parseListRequest', () => {
 	it('refuses a name that can not be a project', () => {
 		expect(parse('project=Not%20One')).toEqual({
 			error: expect.stringContaining('is not a project name'),
+		});
+	});
+});
+
+describe('parseExportRequest', () => {
+	const exported = (query: string) =>
+		parseExportRequest(new URLSearchParams(query));
+
+	it('reads the filters of the list', () => {
+		expect(exported('project=my-app&model=claude')).toEqual({
+			query: {
+				project: 'my-app',
+				search: '',
+				since: undefined,
+				limit: undefined,
+				model: 'claude',
+			},
+		});
+	});
+
+	it('refuses limit and full', () => {
+		expect(exported('limit=5')).toEqual({
+			error: 'limit does not apply to /api/export.',
+		});
+		expect(exported('full=1')).toEqual({
+			error: 'full does not apply to /api/export.',
 		});
 	});
 });

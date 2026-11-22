@@ -180,6 +180,7 @@ export function forwardAndCapture(
 		project,
 		provider,
 		host: target.host,
+		protocol: target.protocol,
 		method: req.method ?? 'GET',
 		path: target.pathname + target.search,
 		headers: maskHeaders(stripHopByHop(req.headers)),
