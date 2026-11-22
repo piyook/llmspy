@@ -12,6 +12,10 @@ The path prefix doesn't match an upstream; the response lists the known ones. Ch
 
 The app can't reach LLMSpy. Check that LLMSpy is running; if the app runs in a container, `localhost` is that container (see [localhost in a container](/guide/docker#localhost-in-a-container)).
 
+**The magnifying glass in the logo is red**
+
+The page has lost its connection to LLMSpy, usually because LLMSpy was stopped. Start it again; the page reconnects by itself and the glass turns green.
+
 **502 from LLMSpy**
 
 The upstream could not be reached; the call in the UI shows the error. A refused connection usually means a local upstream that is not started, or the wrong port. With Docker, an upstream on your machine or in another container is not at `localhost` (see [localhost in a container](/guide/docker#localhost-in-a-container)).

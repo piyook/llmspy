@@ -24,6 +24,7 @@ SDKs, frameworks and coding agents add their own system prompts, tool definition
 - **Projects**: [tag each app's base URL](https://llmspy.piyook.com/guide/projects) to give its calls their own tab
 - **Three formats**: Anthropic Messages, OpenAI Chat Completions and OpenAI Responses, streamed or not
 - **Kept across restarts**: the last 7 days of calls, in one file on your machine, with chips for recent minutes and failed calls ([more](https://llmspy.piyook.com/guide/call-list))
+- **Export**: save the calls you are looking at as an [`llm-capture` file](https://llmspy.piyook.com/reference/capture-format), for other tools or to keep, with API keys left out
 - **Agent friendly**: coding agents and scripts [list, search and read the calls](https://llmspy.piyook.com/guide/agents) as JSON or Markdown, and wait for a running call to end
 - **Lightweight**: one command to start, one base URL to set; no certificates, accounts or runtime dependencies
 
@@ -62,7 +63,7 @@ Each call then appears in the UI at `http://127.0.0.1:8080`. The app keeps its o
 | **Using the UI** | [The call list](https://llmspy.piyook.com/guide/call-list) · [Reading a call](https://llmspy.piyook.com/guide/reading-a-call) · [Comparing calls](https://llmspy.piyook.com/guide/compare) · [Projects](https://llmspy.piyook.com/guide/projects) |
 | **Connect your apps** | [Upstreams](https://llmspy.piyook.com/guide/upstreams) · [Docker](https://llmspy.piyook.com/guide/docker) · [Apps without a base URL](https://llmspy.piyook.com/guide/without-base-url) |
 | **Agents and scripts** | [Reading calls from code](https://llmspy.piyook.com/guide/agents) |
-| **Reference** | [CLI](https://llmspy.piyook.com/reference/cli) · [Configuration](https://llmspy.piyook.com/reference/configuration) · [HTTP API](https://llmspy.piyook.com/reference/api) · [How it works](https://llmspy.piyook.com/reference/how-it-works) |
+| **Reference** | [CLI](https://llmspy.piyook.com/reference/cli) · [Configuration](https://llmspy.piyook.com/reference/configuration) · [HTTP API](https://llmspy.piyook.com/reference/api) · [Capture format](https://llmspy.piyook.com/reference/capture-format) · [How it works](https://llmspy.piyook.com/reference/how-it-works) |
 | **Help** | [Troubleshooting](https://llmspy.piyook.com/troubleshooting) · [Testing with mock data](https://llmspy.piyook.com/guide/mock-data) · [Releases](https://github.com/piyook/llmspy/releases) |
 
 > **Using a coding agent?** Point it at [`llms.txt`](llms.txt) (shipped in the npm package, and served by a running LLMSpy at `http://127.0.0.1:8080/llms.txt`): how to run LLMSpy, point an app at it, and read the captured traffic.

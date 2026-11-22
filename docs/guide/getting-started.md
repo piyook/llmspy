@@ -75,6 +75,8 @@ The OpenAI SDKs expect `/v1` in their base URL; the Anthropic SDK does not.
 
 Open `http://127.0.0.1:8080`. Each call appears in the list on the left as soon as it is sent. Select one to read it as a conversation, see it raw, or compare it with another call.
 
+The magnifying glass in the logo shows whether the page is connected to LLMSpy: green and slowly pulsing while it is, red and struck through when it is not.
+
 ![LLMSpy showing a coding agent's call as a conversation: the user's question, the assistant's tool calls and the tool results](/screenshots/conversation.png)
 
 ## What's next?
