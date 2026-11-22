@@ -56,11 +56,21 @@ describe('openai chat parseRequest', () => {
 					function: {
 						name: 'get_weather',
 						description: 'Weather for a city',
+						parameters: {
+							type: 'object',
+							properties: { city: { type: 'string' } },
+						},
 					},
 				},
 				{ type: 'custom', custom: { name: 'run_sql' } },
 			],
-			functions: [{ name: 'legacy_fn', description: 'Old style' }],
+			functions: [
+				{
+					name: 'legacy_fn',
+					description: 'Old style',
+					parameters: { type: 'object' },
+				},
+			],
 		});
 
 		expect(request).toEqual({
@@ -68,9 +78,20 @@ describe('openai chat parseRequest', () => {
 			stream: true,
 			system: 'You are terse.\n\nUse tools.',
 			tools: [
-				{ name: 'get_weather', description: 'Weather for a city' },
+				{
+					name: 'get_weather',
+					description: 'Weather for a city',
+					inputSchema: {
+						type: 'object',
+						properties: { city: { type: 'string' } },
+					},
+				},
 				{ name: 'run_sql' },
-				{ name: 'legacy_fn', description: 'Old style' },
+				{
+					name: 'legacy_fn',
+					description: 'Old style',
+					inputSchema: { type: 'object' },
+				},
 			],
 			messages: [
 				{

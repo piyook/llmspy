@@ -138,6 +138,7 @@ describe('ProxyServer', () => {
 			project: 'general',
 			provider: 'fake',
 			host: new URL(upstream).host,
+			protocol: 'http:',
 			method: 'POST',
 			path: '/v1/messages?beta=true',
 			body: '{"stream":true}',
@@ -753,6 +754,76 @@ describe('ProxyServer', () => {
 			);
 			for (const query of ['?limit=5', '?full=1', '?status=4x']) {
 				const res = await request(`${base}/api/stats${query}`);
+				expect(res.statusCode).toBe(400);
+				expect((await readAll(res)).toString()).toMatch(/^LLMSpy: /);
+			}
+		});
+	});
+
+	describe('/api/export', () => {
+		it('sends the finished calls the filters match, oldest first, as a capture file', async () => {
+			let release = () => {};
+			const released = new Promise<void>((resolve) => {
+				release = resolve;
+			});
+			const upstream = await startUpstream(async (req, res) => {
+				req.resume();
+				if (req.url?.includes('slow')) await released;
+				res.end('{}');
+			});
+			const { base, store } = await startProxy(upstream);
+			for (const path of [
+				'/@my-app/fake/one',
+				'/fake/other',
+				'/@my-app/fake/two',
+			]) {
+				await readAll(
+					await request(`${base}${path}`, {
+						method: 'POST',
+						headers: { 'x-api-key': 'sk-ant-test-1234567890abcd' },
+						body: '{}',
+					}),
+				);
+			}
+			const running = request(`${base}/@my-app/fake/slow`, {
+				method: 'POST',
+			});
+			await vi.waitFor(() => expect(store.getRequests()).toHaveLength(4));
+
+			const res = await request(`${base}/api/export?project=my-app`);
+			expect(res.statusCode).toBe(200);
+			expect(res.headers['content-type']).toBe(
+				'application/json; charset=utf-8',
+			);
+			expect(res.headers['content-disposition']).toMatch(
+				/^attachment; filename="llmspy-my-app-\d{8}-\d{4}\.capture\.json"$/,
+			);
+			const file = JSON.parse((await readAll(res)).toString());
+			expect(file).toMatchObject({
+				format: 'llm-capture',
+				version: 1,
+				createdBy: 'llmspy 9.9.9-test',
+			});
+			expect(
+				file.calls.map(
+					(c: { http: { request: { url: string } } }) =>
+						c.http.request.url,
+				),
+			).toEqual([`${upstream}/one`, `${upstream}/two`]);
+			expect(
+				file.calls[0].http.request.headers['x-api-key'],
+			).toBeUndefined();
+
+			release();
+			await readAll(await running);
+		});
+
+		it('answers 400 to limit, full and a filter it can not read', async () => {
+			const { base } = await startProxy(
+				await startUpstream((_req, res) => res.end()),
+			);
+			for (const query of ['?limit=5', '?full=1', '?project=Not%20One']) {
+				const res = await request(`${base}/api/export${query}`);
 				expect(res.statusCode).toBe(400);
 				expect((await readAll(res)).toString()).toMatch(/^LLMSpy: /);
 			}

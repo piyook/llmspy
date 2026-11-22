@@ -104,6 +104,7 @@ function parseRequest(body: unknown): LlmRequest {
 		return {
 			name: asString(t.name) ?? '',
 			description: asString(t.description),
+			inputSchema: t.input_schema,
 		};
 	});
 	return {

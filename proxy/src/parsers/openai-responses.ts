@@ -126,6 +126,7 @@ function toTool(tool: unknown): LlmTool {
 			asString(t.type) ??
 			'',
 		description: asString(t.description),
+		inputSchema: t.parameters,
 	};
 }
 

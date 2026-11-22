@@ -85,7 +85,10 @@ describe('openai responses parseRequest', () => {
 					type: 'function',
 					name: 'get_weather',
 					description: 'Weather for a city',
-					parameters: {},
+					parameters: {
+						type: 'object',
+						properties: { city: { type: 'string' } },
+					},
 				},
 				{ type: 'custom', name: 'run_sql' },
 				{ type: 'web_search' },
@@ -98,7 +101,14 @@ describe('openai responses parseRequest', () => {
 			stream: true,
 			system: 'You are terse.\n\nUse tools.',
 			tools: [
-				{ name: 'get_weather', description: 'Weather for a city' },
+				{
+					name: 'get_weather',
+					description: 'Weather for a city',
+					inputSchema: {
+						type: 'object',
+						properties: { city: { type: 'string' } },
+					},
+				},
 				{ name: 'run_sql' },
 				{ name: 'web_search' },
 				{ name: 'docs' },

@@ -26,6 +26,8 @@ export interface CapturedRequest {
 	provider: string;
 	/** Upstream host the request was forwarded to. */
 	host: string;
+	/** Scheme of the upstream, `http:` or `https:`. Absent on calls captured before 0.8.0. */
+	protocol?: string;
 	method: string;
 	/** Path and query as sent upstream. */
 	path: string;

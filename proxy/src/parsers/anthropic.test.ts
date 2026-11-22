@@ -20,7 +20,10 @@ describe('anthropic parseRequest', () => {
 				{
 					name: 'get_weather',
 					description: 'Weather for a city',
-					input_schema: {},
+					input_schema: {
+						type: 'object',
+						properties: { city: { type: 'string' } },
+					},
 				},
 				{ type: 'web_search_20250305', name: 'web_search' },
 			],
@@ -72,7 +75,14 @@ describe('anthropic parseRequest', () => {
 			stream: true,
 			system: 'You are terse.\n\nUse tools.',
 			tools: [
-				{ name: 'get_weather', description: 'Weather for a city' },
+				{
+					name: 'get_weather',
+					description: 'Weather for a city',
+					inputSchema: {
+						type: 'object',
+						properties: { city: { type: 'string' } },
+					},
+				},
 				{ name: 'web_search' },
 			],
 			messages: [
