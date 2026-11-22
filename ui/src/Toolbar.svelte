@@ -71,9 +71,8 @@ function onMenuFocusOut(event: FocusEvent) {
 
 <div class="header">
   <div class="title">
-    <img class="logo" src="/logo.svg" alt="" width="40" height="40" />
-    <h1>LLMSpy</h1>
     <StatusIcon {connected} {address} />
+    <h1>LLMSpy</h1>
   </div>
   <div class="controls">
     <input

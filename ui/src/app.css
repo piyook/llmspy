@@ -147,40 +147,40 @@ body {
 	margin-right: -0.25rem;
 }
 
-/* Proxy connection: an ear in the title colour with moving sound waves, or a slashed red one. */
+/*
+ * Proxy connection, shown by the logo's magnifying glass (StatusIcon.svelte):
+ * green with its lens pulsing, or red, empty and struck through.
+ * The logo's square is dark in both themes, so these colours are fixed too.
+ */
 .status-icon {
-	display: inline-flex;
-	color: var(--danger);
+	color: #fa5252;
 }
 
 .status-icon.connected {
-	color: var(--accent);
+	color: #40c057;
 }
 
-.wave {
-	animation: listen 1.5s ease-in-out infinite;
+.status-icon svg {
+	display: block;
 }
 
-.wave-mid {
-	animation-delay: 0.25s;
-}
-
-.wave-near {
-	animation-delay: 0.5s;
+/* While listening the lens slowly fills with green and empties again. */
+.connected .lens {
+	animation: listen 3s ease-in-out infinite;
 }
 
 @keyframes listen {
 	0%,
 	100% {
-		opacity: 0.15;
+		fill-opacity: 0;
 	}
-	30% {
-		opacity: 1;
+	50% {
+		fill-opacity: 1;
 	}
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.wave {
+	.connected .lens {
 		animation: none;
 	}
 }
