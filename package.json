@@ -4,7 +4,7 @@
 	"description": "Local developer tool for intercepting and displaying LLM API traffic",
 	"license": "MIT",
 	"author": "piyook",
-	"homepage": "https://github.com/piyook/llmspy#readme",
+	"homepage": "https://llmspy.piyook.com/",
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/piyook/llmspy.git"

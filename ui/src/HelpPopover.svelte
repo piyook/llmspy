@@ -1,7 +1,7 @@
 <script lang="ts">
 import Popover from './Popover.svelte';
 
-const README_URL = 'https://github.com/piyook/llmspy#readme';
+const DOCS_URL = 'https://llmspy.piyook.com/';
 // What LLMSpy listens on unless PROXY_PORT says otherwise; shown until the UI reaches the proxy.
 const DEFAULT_ADDRESS = '127.0.0.1:8080';
 
@@ -89,7 +89,7 @@ const base = $derived(`${location.protocol}//${address ?? DEFAULT_ADDRESS}`);
     </ul>
 
     <p class="help-more">
-      More in the <a href={README_URL} target="_blank" rel="noreferrer">README</a>.
+      More in the <a href={DOCS_URL} target="_blank" rel="noreferrer">docs</a>.
     </p>
   </div>
 </Popover>
