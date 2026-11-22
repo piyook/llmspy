@@ -1,6 +1,6 @@
 # LLMSpy
 
-> A local reverse proxy that records the LLM API calls an app makes and shows each one in a web UI: the prompt, the system message, the tools, the reply and the token counts. An app is pointed at it by its base URL setting (`ANTHROPIC_BASE_URL`, `OPENAI_BASE_URL`); requests are forwarded unchanged and a copy is kept. This file is the reference for AI agents and scripts; it ships in the repository and in the npm package `llmspy`, a running LLMSpy serves it at `/llms.txt` (`http://127.0.0.1:8080/llms.txt` by default) for the version that is running, and `README.md` is the human guide.
+> A local reverse proxy that records the LLM API calls an app makes and shows each one in a web UI: the prompt, the system message, the tools, the reply and the token counts. An app is pointed at it by its base URL setting (`ANTHROPIC_BASE_URL`, `OPENAI_BASE_URL`); requests are forwarded unchanged and a copy is kept. This file is the reference for AI agents and scripts; it ships in the repository and in the npm package `llmspy`, a running LLMSpy serves it at `/llms.txt` (`http://127.0.0.1:8080/llms.txt` by default) for the version that is running, and the human guide is at https://llmspy.piyook.com/.
 
 ## What it does and does not do
 
@@ -44,7 +44,7 @@ Set the app's base URL to LLMSpy plus the upstream's path prefix, then start the
 - The app's API key is sent through to the provider as usual. LLMSpy needs no key.
 - An app in another container reaches the proxy at `http://host.docker.internal:8080/<prefix>`, or by service name in the same compose project. Forwarding answers any `Host`; only the traffic endpoints below are limited to loopback.
 - To group an app's calls into a project, put `/@<project>` in front of the prefix: `ANTHROPIC_BASE_URL=http://127.0.0.1:8080/@my-app/anthropic`. It is not forwarded, and sets the record's `project`; without it the project is `general`. Project names follow the same rule as upstream names (below); any other name gets the `404` for an unknown prefix.
-- An app with no base-URL setting can't be pointed at LLMSpy directly. LLMSpy has no intercepting mode; the README section "Apps without a base-URL setting" has a mitmproxy add-on (an untested starting point) that rewrites `https://api.anthropic.com/...` to `http://127.0.0.1:8080/anthropic/...`. Run mitmproxy on another port (`--listen-port 8081`), as LLMSpy uses 8080. Ask the user before installing mitmproxy or trusting its CA.
+- An app with no base-URL setting can't be pointed at LLMSpy directly. LLMSpy has no intercepting mode; the docs page https://llmspy.piyook.com/guide/without-base-url has a mitmproxy add-on (an untested starting point) that rewrites `https://api.anthropic.com/...` to `http://127.0.0.1:8080/anthropic/...`. Run mitmproxy on another port (`--listen-port 8081`), as LLMSpy uses 8080. Ask the user before installing mitmproxy or trusting its CA.
 
 ## Configuration
 
@@ -180,7 +180,7 @@ Check what an app sends for one task, without clearing anyone's calls: note the 
 
 Wait for a call to end: find its `id` (`GET /api/requests?since=<when you started>&limit=1`, or the first summary on `/events`), then `curl -s "http://127.0.0.1:8080/api/requests/$id/conversation?wait=120"` answers once it ends; use `/api/requests/$id?wait=120` for the record. If the answer still has no `timings.end` (or the Markdown header says `running`), the wait ran out: ask again. Waiting for a call that has not been sent yet is not built in: poll `GET /api/requests?since=<when you started>` until a summary shows up.
 
-Without an API key, in a clone of the repository: `npm run mock` starts mock LLM APIs (Anthropic Messages on `127.0.0.1:8001`, OpenAI Chat Completions on `127.0.0.1:8002`). Start LLMSpy with `LLMSPY_UPSTREAMS=llmock=http://127.0.0.1:8001,llmock-openai=http://127.0.0.1:8002`, then `node scripts/mock-traffic.mjs` sends one call of each kind (tool call, `max_tokens`, refusal, `429`, stream error, dropped stream). The README lists the prompt markers that pick each reply.
+Without an API key, in a clone of the repository: `npm run mock` starts mock LLM APIs (Anthropic Messages on `127.0.0.1:8001`, OpenAI Chat Completions on `127.0.0.1:8002`). Start LLMSpy with `LLMSPY_UPSTREAMS=llmock=http://127.0.0.1:8001,llmock-openai=http://127.0.0.1:8002`, then `node scripts/mock-traffic.mjs` sends one call of each kind (tool call, `max_tokens`, refusal, `429`, stream error, dropped stream). https://llmspy.piyook.com/guide/mock-data lists the prompt markers that pick each reply.
 
 ## Do not
 

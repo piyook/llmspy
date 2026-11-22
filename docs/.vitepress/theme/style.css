@@ -1,0 +1,62 @@
+/* LLMSpy colours: the UI's accent (ui/src/app.css) and a cyan to go with it. */
+:root {
+	--llmspy-violet: #646cff;
+	--llmspy-cyan: #22b8cf;
+
+	--vp-c-brand-1: #535bf2;
+	--vp-c-brand-2: #646cff;
+	--vp-c-brand-3: #646cff;
+	--vp-c-brand-soft: rgba(100, 108, 255, 0.14);
+
+	--vp-home-hero-name-color: transparent;
+	--vp-home-hero-name-background: linear-gradient(
+		120deg,
+		var(--llmspy-violet) 30%,
+		var(--llmspy-cyan)
+	);
+
+	--vp-home-hero-image-background-image: linear-gradient(
+		-45deg,
+		var(--llmspy-violet) 50%,
+		var(--llmspy-cyan) 50%
+	);
+	--vp-home-hero-image-filter: blur(44px);
+}
+
+.dark {
+	--vp-c-brand-1: #9ba1ff;
+	--vp-c-brand-2: #7f86ff;
+	--vp-c-brand-3: #646cff;
+	--vp-c-brand-soft: rgba(100, 108, 255, 0.2);
+}
+
+@media (min-width: 640px) {
+	:root {
+		--vp-home-hero-image-filter: blur(56px);
+	}
+}
+
+@media (min-width: 960px) {
+	:root {
+		--vp-home-hero-image-filter: blur(68px);
+	}
+}
+
+/* The logo is a small square icon; give it a size in the hero. */
+.VPHero .image-src {
+	width: 180px;
+	height: 180px;
+}
+
+@media (min-width: 960px) {
+	.VPHero .image-src {
+		width: 260px;
+		height: 260px;
+	}
+}
+
+/* Screenshots of the UI: a thin frame so they stand apart from the page. */
+.vp-doc img {
+	border: 1px solid var(--vp-c-divider);
+	border-radius: 8px;
+}

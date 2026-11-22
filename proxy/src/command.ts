@@ -54,5 +54,5 @@ Settings are environment variables, set in the shell or in ~/.llmspy/.env
   LLMSPY_UPSTREAMS       extra upstreams, as name=url,...
   LLMSPY_RETENTION_DAYS  days to keep captured calls, 0 for ever (7)
 
-Docs: https://github.com/piyook/llmspy`;
+Docs: https://llmspy.piyook.com/`;
 }

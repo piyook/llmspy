@@ -9,6 +9,9 @@
 		"ui/svelte.config.js",
 		"proxy/vitest.e2e.config.ts"
 	],
+	// The docs site is its own package (docs/package.json, VitePress), outside
+	// the workspaces: nothing in proxy/ or ui/ imports it.
+	"ignorePatterns": ["docs/**"],
 	"duplicates": {
 		// The dark colour tokens in ui/src/app.css are written twice on
 		// purpose: once under prefers-color-scheme and once under
