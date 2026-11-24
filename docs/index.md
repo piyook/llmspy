@@ -68,7 +68,7 @@ ANTHROPIC_BASE_URL=http://127.0.0.1:8080/anthropic claude
 
 [Getting started](/guide/getting-started) walks you through it.
 
-![LLMSpy showing a coding agent's call as a conversation: the user's question, the assistant's tool calls and the tool results](/screenshots/conversation.png)
+<DemoVideo />
 
 ::: tip Using a coding agent?
 Point it at [`llms.txt`](/llms.txt) (also shipped in the npm package, and served by a running LLMSpy at `http://127.0.0.1:8080/llms.txt`): how to run LLMSpy, point an app at it, and read what was captured.

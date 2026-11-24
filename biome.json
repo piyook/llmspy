@@ -27,7 +27,7 @@
 	},
 	"overrides": [
 		{
-			"includes": ["**/*.svelte"],
+			"includes": ["**/*.svelte", "**/*.vue"],
 			"linter": {
 				"rules": {
 					"style": { "useConst": "off", "useImportType": "off" },
