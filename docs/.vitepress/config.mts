@@ -22,6 +22,8 @@ export default defineConfig({
 		'See the LLM API calls your apps and agents make, live, on your own machine',
 	base,
 	cleanUrls: true,
+	// Build scripts and their notes are not pages.
+	srcExclude: ['scripts/**'],
 	sitemap: { hostname: 'https://llmspy.piyook.com' },
 	lastUpdated: true,
 	head: [
