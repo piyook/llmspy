@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<style>
+	* { box-sizing: border-box; }
+	html, body { margin: 0; width: 1280px; height: 720px; overflow: hidden; }
+	body {
+		background: linear-gradient(135deg, #1d1d3a 0%, #121220 55%, #172a1f 100%);
+		font-family: 'Segoe UI', system-ui, sans-serif;
+		position: relative;
+	}
+	.win {
+		position: absolute; top: 20px; bottom: 20px; border-radius: 12px; overflow: hidden;
+		box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.07);
+	}
+	.bar {
+		height: 34px; display: flex; align-items: center; gap: 7px; padding: 0 12px;
+		background: #2a2f36; color: #9aa4b0; font-size: 13px;
+	}
+	.dot { width: 11px; height: 11px; border-radius: 50%; }
+	.bar .title { margin-left: 10px; }
+	.url {
+		margin-left: 14px; flex: 1; background: #1b1f24; border-radius: 6px; padding: 4px 10px;
+		color: #c9d1d9; font-size: 12.5px;
+	}
+	#term { left: 20px; width: 520px; background: #14171b; }
+	#termBody {
+		position: absolute; top: 34px; left: 0; right: 0; bottom: 0; padding: 14px 16px;
+		font: 14.5px/1.5 'Cascadia Mono', Consolas, monospace; color: #d6dde5;
+		display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden;
+		white-space: pre-wrap; word-break: break-all;
+	}
+	.p { color: #2ecc40; }
+	.cmd { color: #e8edf2; }
+	.ok { color: #2ecc40; }
+	.dim { color: #7d8792; }
+	.k { color: #79c0ff; }
+	.s { color: #a5d6a7; }
+	.err { color: #ff7b72; }
+	.warn { color: #f0b35a; }
+	.caret { display: inline-block; width: 8px; height: 17px; background: #d6dde5; vertical-align: -3px; animation: b 1s steps(1) infinite; }
+	@keyframes b { 50% { opacity: 0; } }
+	.gap { height: 10px; }
+	#browser { left: 560px; right: 20px; background: #1e2227; opacity: 0; transform: translateY(8px); transition: opacity .5s, transform .5s; }
+	#browser.on { opacity: 1; transform: none; }
+	#dashWrap { position: absolute; top: 34px; left: 0; right: 0; bottom: 0; overflow: hidden; }
+	#dash {
+		border: 0; width: 1110px; height: 1034px; transform: scale(0.6306); transform-origin: 0 0;
+	}
+	#cursor {
+		position: absolute; left: 900px; top: 500px; width: 22px; height: 22px; z-index: 10; pointer-events: none;
+		transition: left .7s cubic-bezier(.4,0,.2,1), top .7s cubic-bezier(.4,0,.2,1); opacity: 0;
+	}
+	#cursor.on { opacity: 1; }
+	#cursor.click::after {
+		content: ''; position: absolute; left: -12px; top: -12px; width: 24px; height: 24px; border-radius: 50%;
+		border: 2px solid #7c7cf8; animation: ring .45s ease-out forwards;
+	}
+	@keyframes ring { from { transform: scale(.3); opacity: 1; } to { transform: scale(1.4); opacity: 0; } }
+</style>
+</head>
+<body>
+	<div class="win" id="term">
+		<div class="bar">
+			<span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span>
+			<span class="title">~/picnic-bot</span>
+		</div>
+		<div id="termBody"><div id="lines"></div></div>
+	</div>
+	<div class="win" id="browser">
+		<div class="bar">
+			<span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span>
+			<span class="url">127.0.0.1:8080</span>
+		</div>
+		<div id="dashWrap"><iframe id="dash" title="LLMSpy"></iframe></div>
+	</div>
+	<svg id="cursor" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 2l15 11-6.5 1.2L16 21l-3 1.4-3.4-6.9L4 20z" fill="#fff" stroke="#111" stroke-width="1.4" stroke-linejoin="round"/></svg>
+<script>
+	const lines = document.getElementById('lines');
+	const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+	let caretLine = null;
+	function addLine(html, cls) {
+		const d = document.createElement('div');
+		if (cls) d.className = cls;
+		d.innerHTML = html;
+		lines.appendChild(d);
+		return d;
+	}
+	window.term = {
+		async type(text, speed = 17) {
+			if (caretLine) caretLine.remove();
+			const d = addLine('<span class="p">$ </span><span class="cmd"></span><span class="caret"></span>');
+			const c = d.querySelector('.cmd');
+			for (const ch of text) {
+				c.textContent += ch;
+				await sleep(speed + (Math.random() * 18 - 9));
+			}
+			await sleep(250);
+			d.querySelector('.caret').remove();
+		},
+		print(html) { addLine(html); },
+		gap() { addLine('', 'gap'); },
+		prompt() { caretLine = addLine('<span class="p">$ </span><span class="caret"></span>'); },
+	};
+	window.stage = {
+		showBrowser(src) {
+			document.getElementById('dash').src = src;
+			document.getElementById('browser').classList.add('on');
+		},
+		async moveCursor(x, y) {
+			const c = document.getElementById('cursor');
+			c.classList.add('on');
+			c.style.left = x + 'px';
+			c.style.top = y + 'px';
+			await sleep(750);
+		},
+		async clickFx() {
+			const c = document.getElementById('cursor');
+			c.classList.remove('click'); void c.offsetWidth; c.classList.add('click');
+			await sleep(150);
+		},
+		hideCursor() { document.getElementById('cursor').classList.remove('on'); },
+	};
+</script>
+</body>
+</html>
